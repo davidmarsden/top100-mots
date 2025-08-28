@@ -15,24 +15,26 @@ import {
   Trash2,
 } from "lucide-react";
 
-// ---- Helper: date formatting ----
+// Helper: format ISO date/time to local string
 const fmtDate = (iso) => new Date(iso).toLocaleString();
 
 export default function VotingApp() {
-  // ---- State ----
-  const [currentManager, setCurrentManager] = useState("");
+  // ---------- Core state ----------
+  const [currentManager, setCurrentManager] = useState(""); // display name e.g. "Jay Jones (Dinamo Zagreb)"
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [votes, setVotes] = useState({});
-  const [votingComplete, setVotingComplete] = useState({});
+  const [votes, setVotes] = useState({}); // per-session UI selection
+  const [votingComplete, setVotingComplete] = useState({}); // category → true
   const [activeCategory, setActiveCategory] = useState("overall");
   const [results, setResults] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   const [selectedSeason] = useState("S25");
+
+  // Deadline (editable by admin)
   const [votingDeadline, setVotingDeadline] = useState("2025-09-15T23:59:59");
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
 
-  // Persist deadline to localStorage
+  // Persist deadline locally
   useEffect(() => {
     const saved = localStorage.getItem("votingDeadline");
     if (saved) setVotingDeadline(saved);
@@ -41,115 +43,97 @@ export default function VotingApp() {
     localStorage.setItem("votingDeadline", votingDeadline);
   }, [votingDeadline]);
 
-  // Simulated in-memory vote store
-  const [allVotes, setAllVotes] = useState({}); // { managerName: { overall: 'id', division1: 'id', ... } }
-  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ { name, timestamp } ] }
+  // In-memory vote store (simulated)
+  // allVotes is keyed by canonical composite key "name|club"
+  const [allVotes, setAllVotes] = useState({});
+  // voterNames tracks display voters list per nominee
+  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ { name: display, timestamp } ] }
 
-  // ---- Admins & Manager List ----
+  // ---------- Admins ----------
   const adminUsers = useMemo(
     () => ["David Marsden", "Mister TRX", "Heath Brown"],
     []
   );
 
-
+  // ---------- Valid managers (fallback defaults as objects) ----------
+  // You can add more here if you want offline fallback; primary source is the sheet.
+  const defaultManagers = useMemo(
+    () => [
+      { name: "Scott Mckenzie", club: "São Paulo FC", active: true },
+      { name: "James Mckenzie", club: "Chelsea", active: true },
+      { name: "Heath Brown", club: "", active: true },
+      { name: "André Libras-Boas", club: "Hellas Verona", active: true },
+      { name: "Adam", club: "Barcelona", active: true },
+      { name: "Bojan H", club: "Bayern München", active: true },
+      { name: "David Marsden", club: "Hamburger SV", active: true },
+    ],
+    []
+  );
 
   const [validManagers, setValidManagers] = useState(defaultManagers);
 
-// Fetch managers from Netlify Function (Google Sheet) → clean & dedupe (source of truth)
-useEffect(() => {
-  let cancelled = false;
-  (async () => {
-    try {
-      const res = await fetch("/api/managers");
-      if (!res.ok) return;
-      const data = await res.json();
-      if (cancelled) return;
+  // ---------- Fetch managers from Netlify Function (Google Sheet) ----------
+  // Your sheet headers are exactly: club, name, active (order doesn't matter).
+  useEffect(() => {
+    let cancelled = false;
 
-      const rows = Array.isArray(data?.managers) ? data.managers : [];
+    const truthy = (v) => {
+      if (typeof v === "boolean") return v;
+      if (typeof v === "number") return v === 1;
+      if (typeof v === "string")
+        return ["true", "yes", "1"].includes(v.trim().toLowerCase());
+      return false;
+    };
 
-      const truthy = (v) => {
-        if (typeof v === "boolean") return v;
-        if (typeof v === "number") return v === 1;
-        if (typeof v === "string")
-          return ["true", "yes", "1"].includes(v.trim().toLowerCase());
-        return false;
-      };
+    (async () => {
+      try {
+        const res = await fetch("/api/managers");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
 
-      const getName = (obj) =>
-        obj?.name ??
-        obj?.Manager ??
-        obj?.manager ??
-        obj?.fullName ??
-        obj?.FullName ??
-        obj?.["Manager Name"] ??
-        obj?.["manager name"] ??
-        obj?.["Name"];
+        const rows = Array.isArray(data?.managers) ? data.managers : [];
 
-      let list = [];
+        const list = rows
+          .filter((r) => truthy(r?.active))
+          .map((r) => ({
+            name: (r?.name || "").toString().trim(),
+            club: (r?.club || "").toString().trim(),
+          }))
+          .filter((r) => r.name);
 
-      if (rows.length && typeof rows[0] === "object") {
-        // Array of objects: respect an "active/Top100/allowed/eligible" style flag
-        list = rows
-          .filter((r) => {
-            const flag =
-              r?.active ??
-              r?.Active ??
-              r?.isActive ??
-              r?.is_top100 ??
-              r?.isTop100 ??
-              r?.Top100 ??
-              r?.top100 ??
-              r?.allowed ??
-              r?.Allowed ??
-              r?.eligible ??
-              r?.Eligible ??
-              r?.enabled ??
-              r?.Enabled ??
-              r?.status ??
-              r?.Status;
-            return truthy(flag);
-          })
-          .map((r) => getName(r))
-          .filter(Boolean);
-      } else if (rows.length && typeof rows[0] === "string") {
-        // Array of strings: assume the function already filtered to valid names
-        list = rows;
-      }
-
-      // Clean & dedupe case-insensitive
-      const seen = new Set();
-      const clean = list
-        .map((s) => s?.toString().trim())
-        .filter(Boolean)
-        .filter((name) => {
-          const lower = name.toLowerCase();
-          if (seen.has(lower)) return false;
-          seen.add(lower);
+        // Dedupe by (name, club) case-insensitively
+        const seen = new Set();
+        const clean = list.filter((r) => {
+          const key = `${r.name.toLowerCase()}|${(r.club || "").toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
           return true;
         });
 
-      if (clean.length) {
-        setValidManagers(clean);
-      } else {
-        // Fallback to defaults if the sheet yields nothing usable
+        setValidManagers(clean.length ? clean : defaultManagers);
+      } catch {
         setValidManagers(defaultManagers);
       }
-    } catch {
-      // ignore, keep defaults
-    }
-  })();
-  return () => {
-    cancelled = true;
-  };
-}, [defaultManagers]);
+    })();
 
-  // Client-side closed flag
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultManagers]);
+
+  // ---------- Login inputs / ambiguity handling ----------
+  const [nameInput, setNameInput] = useState("");
+  const [clubInput, setClubInput] = useState("");
+  const [needsClub, setNeedsClub] = useState(false);
+
+  // ---------- Client-side closed flag ----------
   const votingClosed = useMemo(
     () => new Date() > new Date(votingDeadline),
     [votingDeadline]
   );
 
-  // ---- Categories (includes D2–D5) ----
+  // ---------- Categories ----------
   const categories = useMemo(
     () => ({
       overall: {
@@ -334,7 +318,8 @@ useEffect(() => {
             name: "Marc Ques",
             club: "FK Partizan",
             achievement: "Division 5 Champion",
-            description: "Pred 9th → clear title (+8 VA) and best stats",
+            description:
+              "Pred 9th → clear title (+8 VA) and best stats",
           },
           {
             id: "bruno_neto_d5",
@@ -349,7 +334,8 @@ useEffect(() => {
             name: "Marian Moise",
             club: "Newcastle United",
             achievement: "Play-off Winner (promotion secured)",
-            description: "Pred 11th → promoted via playoffs (+6 VA)",
+            description:
+              "Pred 11th → promoted via playoffs (+6 VA)",
           },
           {
             id: "wayne_bullough_d5",
@@ -408,17 +394,42 @@ useEffect(() => {
     []
   );
 
-  // ---- Login ----
-  const login = (rawName) => {
+  // ---------- Manager helpers ----------
+  const canonicalKey = (name, club) =>
+    `${name}`.trim().toLowerCase() + "|" + `${club || ""}`.trim().toLowerCase();
+
+  const findMatchesByName = (name) =>
+    validManagers.filter(
+      (m) =>
+        m.name && m.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+
+  const findCanonicalManager = (name, clubOptional) => {
+    const matches = findMatchesByName(name);
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    if (!clubOptional) return "AMBIGUOUS"; // need club selection
+    const byClub = matches.find(
+      (m) =>
+        (m.club || "").trim().toLowerCase() ===
+        clubOptional.trim().toLowerCase()
+    );
+    return byClub || null;
+  };
+
+  // ---------- Login ----------
+  const login = (rawName, rawClub) => {
     const trimmedName = (rawName || "").trim();
+    const trimmedClub = (rawClub || "").trim();
     setVerificationError("");
+    setNeedsClub(false);
 
     if (!trimmedName) {
       setVerificationError("Please enter a manager name");
       return;
     }
 
-    // Deadline check (client-side; still enforce server-side if used)
+    // Deadline check (client-side)
     if (votingClosed && !adminUsers.includes(trimmedName)) {
       const d = new Date(votingDeadline);
       setVerificationError(
@@ -427,113 +438,124 @@ useEffect(() => {
       return;
     }
 
-    // Find canonical manager name from sheet list (case-insensitive)
-    const canonicalName = validManagers.find(
-      (validName) => validName.toLowerCase() === trimmedName.toLowerCase()
-    );
+    const match = findCanonicalManager(trimmedName, trimmedClub);
 
-    if (!canonicalName) {
+    if (match === "AMBIGUOUS") {
+      setNeedsClub(true);
       setVerificationError(
-        `"${trimmedName}" is not found in the Top 100 manager database. Please check spelling or contact admin.`
+        `Multiple managers named "${trimmedName}" found. Please select a club.`
       );
       return;
     }
 
-    // One ballot per manager (case-insensitive)
+    if (!match) {
+      setVerificationError(
+        `"${trimmedName}" is not in the Top 100 (or is inactive). Please check spelling or contact admin.`
+      );
+      return;
+    }
+
+    const key = canonicalKey(match.name, match.club);
+
+    // One ballot per manager key (name+club)
     const hasVoted = Object.keys(allVotes).some(
-      (name) => name.toLowerCase() === canonicalName.toLowerCase()
+      (k) => k.toLowerCase() === key.toLowerCase()
     );
-    if (hasVoted && !adminUsers.includes(canonicalName)) {
+    if (hasVoted && !adminUsers.includes(match.name)) {
       setVerificationError(
-        `"${canonicalName}" has already cast votes. Each manager can only vote once.`
+        `"${match.name}${match.club ? " (" + match.club + ")" : ""}" has already cast votes. One ballot per manager.`
       );
       return;
     }
 
-    setCurrentManager(canonicalName); // store canonical
+    // Use display name like "Name (Club)" for clarity in UI
+    setCurrentManager(`${match.name}${match.club ? " (" + match.club + ")" : ""}`);
     setIsLoggedIn(true);
-    setIsAdmin(adminUsers.includes(canonicalName));
+    setIsAdmin(adminUsers.includes(match.name));
   };
 
-  const logout = () => {
-    setIsLoggedIn(false);
-    setCurrentManager("");
-    setIsAdmin(false);
-    setVotes({});
-    setVotingComplete({});
-    setResults(false);
-    setVerificationError("");
-  };
-
-  // ---- Voting ----
+  // ---------- Voting ----------
   const submitVote = (category, nomineeId) => {
     if (!isLoggedIn || votingClosed || !currentManager) return;
 
-    const managerName = currentManager; // canonical
+    // Derive name+club from the display string "Name (Club)" if present
+    const m = currentManager.match(/^(.*?)(?:\s\((.*)\))?$/);
+    const namePart = (m?.[1] || "").trim();
+    const clubPart = (m?.[2] || "").trim();
+    const key = canonicalKey(namePart, clubPart);
 
-    // Per-user UI
     setVotes((prev) => ({ ...prev, [category]: nomineeId }));
     setVotingComplete((prev) => ({ ...prev, [category]: true }));
 
-    // Aggregate state keyed by canonical name
     setAllVotes((prev) => ({
       ...prev,
-      [managerName]: { ...(prev[managerName] || {}), [category]: nomineeId },
+      [key]: { ...(prev[key] || {}), [category]: nomineeId },
     }));
 
-    // Voter list
     setVoterNames((prev) => ({
       ...prev,
       [`${category}_${nomineeId}`]: [
         ...(prev[`${category}_${nomineeId}`] || []),
-        { name: managerName, timestamp: new Date().toISOString() },
+        { name: currentManager, timestamp: new Date().toISOString() }, // display string
       ],
     }));
 
-    // Optional: persist
+    // Optional: persist to backend
     try {
       const nomineeObj = categories[category]?.nominees?.find(
         (n) => n.id === nomineeId
       );
       const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
-
       fetch("/api/submit-vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          manager: managerName,
+          manager: currentManager, // display
+          managerKey: key, // canonical key for backend if you want
+          name: namePart,
+          club: clubPart,
           category,
           nomineeId,
           nomineeName,
           season: selectedSeason,
         }),
       }).catch(() => {});
-    } catch {}
+    } catch {
+      // no-op
+    }
   };
 
-  const removeVote = (category, nomineeId, voterName) => {
+  const removeVote = (category, nomineeId, voterDisplay) => {
     if (!isAdmin) return;
+
+    // voterDisplay is like "Name (Club)" (or just "Name")
+    const m = (voterDisplay || "").match(/^(.*?)(?:\s\((.*)\))?$/);
+    const namePart = (m?.[1] || "").trim();
+    const clubPart = (m?.[2] || "").trim();
+    const key = canonicalKey(namePart, clubPart);
 
     setVoterNames((prev) => ({
       ...prev,
       [`${category}_${nomineeId}`]: (prev[`${category}_${nomineeId}`] || []).filter(
-        (v) => v.name !== voterName
+        (v) => v.name !== voterDisplay
       ),
     }));
 
     setAllVotes((prev) => {
       const next = { ...prev };
-      if (next[voterName]?.[category]) {
-        delete next[voterName][category];
-        if (Object.keys(next[voterName]).length === 0) delete next[voterName];
+      if (next[key]?.[category]) {
+        delete next[key][category];
+        if (Object.keys(next[key]).length === 0) delete next[key];
       }
       return next;
     });
+
+    // Optional: backend revoke
+    // fetch('/api/remove-vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ managerKey: key, category, nomineeId, season: selectedSeason }) });
   };
 
   const exportResults = () => {
     if (!isAdmin) return;
-
     const out = {};
     Object.keys(categories).forEach((category) => {
       out[category] = {};
@@ -582,11 +604,22 @@ useEffect(() => {
     return `${days}d ${hours}h ${minutes}m remaining`;
   };
 
-  // ---- UI (single conditional return) ----
+  const logout = () => {
+    setIsLoggedIn(false);
+    setCurrentManager("");
+    setIsAdmin(false);
+    setVotes({});
+    setVotingComplete({});
+    setResults(false);
+    setVerificationError("");
+    setNameInput("");
+    setClubInput("");
+    setNeedsClub(false);
+  };
+
+  // ---------- UI ----------
   return isLoggedIn ? (
-    /* -------------------------
-       LOGGED-IN APP RENDER
-    ------------------------- */
+    // ===== LOGGED-IN APP =====
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10">
@@ -595,11 +628,14 @@ useEffect(() => {
             <div className="flex items-center gap-3">
               <Trophy className="w-8 h-8 text-yellow-400" />
               <div>
-                <h1 className="text-xl font-bold text-white">Season 25 Manager Awards</h1>
-                <p className="text-sm text-gray-300">Voting as: {currentManager}</p>
+                <h1 className="text-xl font-bold text-white">
+                  Season 25 Manager Awards
+                </h1>
+                <p className="text-sm text-gray-300">
+                  Voting as: {currentManager}
+                </p>
               </div>
             </div>
-
             <div className="flex items-center gap-4">
               <div className="text-sm text-yellow-300">
                 <Calendar className="w-4 h-4 inline mr-1" />
@@ -618,10 +654,14 @@ useEffect(() => {
                         <input
                           type="datetime-local"
                           className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-                          value={new Date(votingDeadline).toISOString().slice(0, 16)}
+                          value={new Date(votingDeadline)
+                            .toISOString()
+                            .slice(0, 16)}
                           onChange={(e) => {
                             const v = e.target.value
-                              ? new Date(e.target.value).toISOString().slice(0, 19)
+                              ? new Date(e.target.value)
+                                  .toISOString()
+                                  .slice(0, 19)
                               : "";
                             if (v) setVotingDeadline(v);
                           }}
@@ -637,7 +677,6 @@ useEffect(() => {
                   </span>
                 )}
               </div>
-
               <button
                 onClick={() => setResults((s) => !s)}
                 className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -645,12 +684,10 @@ useEffect(() => {
                 {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 {results ? "Hide Results" : "Show Results"}
               </button>
-
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
                 {Object.keys(allVotes).length} managers voted
               </div>
-
               {isAdmin && (
                 <div className="flex items-center gap-2">
                   <button
@@ -666,7 +703,6 @@ useEffect(() => {
                   </div>
                 </div>
               )}
-
               <button
                 onClick={logout}
                 className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition-colors"
@@ -697,7 +733,9 @@ useEffect(() => {
               >
                 <Icon className="w-4 h-4" />
                 {category.title}
-                {isComplete && <CheckCircle className="w-4 h-4 text-green-400" />}
+                {isComplete && (
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                )}
               </button>
             );
           })}
@@ -751,7 +789,9 @@ useEffect(() => {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
+                        <h3 className="text-lg font-semibold text-white">
+                          {nominee.name}
+                        </h3>
                         <p className="text-yellow-400 font-medium">{nominee.club}</p>
                       </div>
                       {isVoted && (
@@ -792,7 +832,9 @@ useEffect(() => {
                                     className="flex items-center justify-between gap-2 bg-white/5 px-2 py-1 rounded"
                                   >
                                     <span className="truncate">{v.name}</span>
-                                    <span className="opacity-70">{fmtDate(v.timestamp)}</span>
+                                    <span className="opacity-70">
+                                      {fmtDate(v.timestamp)}
+                                    </span>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -819,21 +861,52 @@ useEffect(() => {
       </div>
     </div>
   ) : (
-    /* -------------------------
-       LOGIN VIEW
-    ------------------------- */
+    // ===== LOGIN VIEW =====
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
         <div className="text-center mb-6">
           <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
           <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
-          <div className="mt-2 text-sm text-yellow-300">
+          <div className="text-sm text-yellow-300 mt-2">
             <Calendar className="w-4 h-4 inline mr-1" />
             {getTimeRemaining()}
+            {isAdmin && (
+              <span className="ml-3 inline-flex items-center gap-2">
+                {!isEditingDeadline ? (
+                  <button
+                    onClick={() => setIsEditingDeadline(true)}
+                    className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
+                  >
+                    Edit deadline
+                  </button>
+                ) : (
+                  <>
+                    <input
+                      type="datetime-local"
+                      className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
+                      value={new Date(votingDeadline).toISOString().slice(0, 16)}
+                      onChange={(e) => {
+                        const v = e.target.value
+                          ? new Date(e.target.value).toISOString().slice(0, 19)
+                          : "";
+                        if (v) setVotingDeadline(v);
+                      }}
+                    />
+                    <button
+                      onClick={() => setIsEditingDeadline(false)}
+                      className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
+                    >
+                      Done
+                    </button>
+                  </>
+                )}
+              </span>
+            )}
           </div>
         </div>
 
+        {/* Inputs */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-200 mb-2">
@@ -841,26 +914,58 @@ useEffect(() => {
             </label>
             <input
               type="text"
-              placeholder="e.g., Scott Mckenzie"
+              value={nameInput}
+              onChange={(e) => {
+                setNameInput(e.target.value);
+                const matches = findMatchesByName(e.target.value || "");
+                setNeedsClub(matches.length > 1);
+              }}
+              placeholder="e.g., Jay Jones"
               className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  const value = e.currentTarget.value;
-                  login(value);
+                  login(nameInput, clubInput);
                 }
               }}
             />
-            {verificationError && (
-              <p className="mt-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
-                {verificationError}
-              </p>
-            )}
           </div>
+
+          {needsClub && (
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-2">
+                Select Your Club
+              </label>
+              <input
+                list="clubs-for-name"
+                value={clubInput}
+                onChange={(e) => setClubInput(e.target.value)}
+                placeholder="e.g., Dinamo Zagreb"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    login(nameInput, clubInput);
+                  }
+                }}
+              />
+              <datalist id="clubs-for-name">
+                {findMatchesByName(nameInput || "").map((m) => (
+                  <option key={`${m.name}-${m.club}`} value={m.club} />
+                ))}
+              </datalist>
+              <p className="text-xs text-gray-300 mt-1">
+                Multiple managers share this name — please pick the correct club.
+              </p>
+            </div>
+          )}
+
+          {verificationError && (
+            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
+              {verificationError}
+            </p>
+          )}
+
           <button
-            onClick={() => {
-              const input = document.querySelector('input[type="text"]');
-              if (input) login(input.value);
-            }}
+            onClick={() => login(nameInput, clubInput)}
             className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <User className="w-4 h-4" />
@@ -868,6 +973,7 @@ useEffect(() => {
           </button>
         </div>
 
+        {/* Small print */}
         <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
           <div className="flex items-center justify-center gap-1">
             <Lock className="w-3 h-3" />
