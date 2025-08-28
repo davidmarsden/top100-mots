@@ -389,4 +389,3 @@ return (
     </div>
   </div>
 ); // end logged-in return
-} // end VotingApp component
