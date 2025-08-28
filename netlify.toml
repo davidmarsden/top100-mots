@@ -1,6 +1,6 @@
 [build]
   command = "npm ci && npm run build"
-  publish = "dist"
+  publish = "dist"   # change to "build" if using CRA
 
 [functions]
   directory = "netlify/functions"
