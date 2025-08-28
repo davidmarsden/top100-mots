@@ -1,55 +1,65 @@
-// POST { manager, category, nomineeId, nomineeName, season } -> { ok:true } or { ok:false, reason }
-import { google } from "googleapis";
+const { getAuth } = require("./_google");
 
-export default async (req) => {
-  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+exports.handler = async (event) => {
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
   try {
-    const { manager, category, nomineeId, nomineeName, season } = await req.json();
+    const payload = JSON.parse(event.body || "{}");
+    const {
+      manager,      // display name (canonical from UI)
+      category,
+      nomineeId,
+      nomineeName,
+      season,       // e.g., "S25"
+    } = payload;
 
     if (!manager || !category || !nomineeId || !season) {
-      return new Response(JSON.stringify({ ok: false, reason: "missing_fields" }), { status: 400 });
-    }
-    if (process.env.ALLOWED_SEASON && season !== process.env.ALLOWED_SEASON) {
-      return new Response(JSON.stringify({ ok: false, reason: "bad_season" }), { status: 400 });
+      return { statusCode: 400, body: "Missing fields" };
     }
 
-    // Google Sheets auth
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
-    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const sheets = getAuth();
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-    // One ballot per manager per category (server-side)
-    const read = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: "Votes_S25!A:E", // Timestamp | Manager | Category | NomineeId | NomineeName
-    });
-    const rows = read.data.values || [];
-    const already = rows.some((r) => (r[1] || "").toLowerCase() === manager.toLowerCase()
-                                  && (r[2] || "") === category);
-    if (already) {
-      return new Response(JSON.stringify({ ok: false, reason: "duplicate" }), { status: 409 });
-    }
+    // Try to lookup the manager's club from Managers sheet so we can log it
+    let club = "";
+    try {
+      const m = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: "Managers!A2:C",
+      });
+      const rows = m.data.values || [];
+      const match = rows.find((r) => (r[1] || "").toString().trim().toLowerCase() === manager.toLowerCase());
+      if (match) club = (match[0] || "").toString().trim();
+    } catch (_) {}
 
-    // Append vote
-    const row = [
-      new Date().toISOString(),
+    // Append to Votes_S25 (change sheet/tab name here if needed)
+    const voteRow = [
+      new Date().toISOString(), // timestamp
+      season,
       manager,
+      club,
       category,
       nomineeId,
       nomineeName || "",
     ];
+
     await sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId,
-      range: "Votes_S25!A:E",
+      spreadsheetId,
+      range: "Votes_S25!A:G",
       valueInputOption: "RAW",
-      requestBody: { values: [row] }
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values: [voteRow] },
     });
 
-    return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" }});
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ ok: true }),
+      headers: { "Content-Type": "application/json" },
+    };
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, reason: "server_error" }), { status: 500 });
+    console.error("submit-vote error", err);
+    return { statusCode: 500, body: "Failed to submit vote" };
   }
-}
+};
