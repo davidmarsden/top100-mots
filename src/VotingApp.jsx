@@ -159,8 +159,19 @@ const getTimeRemaining = () => {
 }; // <-- important semicolon
 
 // ---- UI ----
-if (!isLoggedIn) {
-  return (
+return (
+  isLoggedIn ? (
+    /* -------------------------
+       LOGGED-IN APP RENDER
+    ------------------------- */
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
+      {/* Header */}
+      {/* ... your logged-in JSX exactly as you have it ... */}
+    </div>
+  ) : (
+    /* -------------------------
+       LOGIN VIEW
+    ------------------------- */
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
         <div className="text-center mb-6">
@@ -183,9 +194,7 @@ if (!isLoggedIn) {
               placeholder="e.g., Scott Mckenzie"
               className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  login(e.currentTarget.value);
-                }
+                if (e.key === 'Enter') login(e.currentTarget.value);
               }}
             />
             {verificationError && (
@@ -194,6 +203,7 @@ if (!isLoggedIn) {
               </p>
             )}
           </div>
+
           <button
             onClick={() => {
               const input = document.querySelector('input');
@@ -215,8 +225,8 @@ if (!isLoggedIn) {
         </div>
       </div>
     </div>
-  );
-}
+  )
+);
 
 /* -------------------------
    LOGGED-IN APP RENDER
