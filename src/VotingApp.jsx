@@ -158,48 +158,64 @@ const getTimeRemaining = () => {
   return `${days}d ${hours}h ${minutes}m remaining`;
 }; // <-- important semicolon
 
-// ---- UI ---- if (!isLoggedIn) { return ( <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4"> <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20"> <div className="text-center mb-6"> <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" /> <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1> <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2> <div className="mt-2 text-sm text-yellow-300"> <Calendar className="w-4 h-4 inline mr-1" /> {getTimeRemaining()} </div> </div>
+// ---- UI ----
+if (!isLoggedIn) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
+        <div className="text-center mb-6">
+          <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
+          <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
+          <div className="mt-2 text-sm text-yellow-300">
+            <Calendar className="w-4 h-4 inline mr-1" />
+            {getTimeRemaining()}
+          </div>
+        </div>
 
-<div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-200 mb-2">Enter Your Manager Name</label>
-          <input
-            type="text"
-            placeholder="e.g., Scott Mckenzie"
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                login(e.currentTarget.value);
-              }
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-2">
+              Enter Your Manager Name
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., Scott Mckenzie"
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  login(e.currentTarget.value);
+                }
+              }}
+            />
+            {verificationError && (
+              <p className="mt-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
+                {verificationError}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              const input = document.querySelector('input');
+              if (input) login(input.value);
             }}
-          />
-          {verificationError && (
-            <p className="mt-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">{verificationError}</p>
-          )}
+            className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <User className="w-4 h-4" />
+            Verify & Start Voting
+          </button>
         </div>
-        <button
-          onClick={() => {
-            const input = document.querySelector('input');
-            if (input) login(input.value);
-          }}
-          className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          <User className="w-4 h-4" />
-          Verify & Start Voting
-        </button>
-      </div>
 
-      <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
-        <div className="flex items-center justify-center gap-1">
-          <Lock className="w-3 h-3" />
-          Enter your Top 100 manager name
+        <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
+          <div className="flex items-center justify-center gap-1">
+            <Lock className="w-3 h-3" />
+            Enter your Top 100 manager name
+          </div>
+          <div>One vote per verified manager per category</div>
         </div>
-        <div>One vote per verified manager per category</div>
       </div>
     </div>
-  </div>
-);
-
+  );
 }
 
 return ( <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900"> {/* Header */} <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10"> <div className="max-w-6xl mx-auto px-4 py-4"> <div className="flex items-center justify-between"> <div className="flex items-center gap-3"> <Trophy className="w-8 h-8 text-yellow-400" /> <div> <h1 className="text-xl font-bold text-white">Season 25 Manager Awards</h1> <p className="text-sm text-gray-300">Voting as: {currentManager}</p> </div> </div> <div className="flex items-center gap-4"> <div className="text-sm text-yellow-300"> <Calendar className="w-4 h-4 inline mr-1" /> {getTimeRemaining()} </div> <button onClick={() => setResults((s) => !s)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2" > {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />} {results ? 'Hide Results' : 'Show Results'} </button> <div className="text-sm text-gray-300"> <Users className="w-4 h-4 inline mr-1" /> {Object.keys(allVotes).length} managers voted </div> {isAdmin && ( <div className="flex items-center gap-2"> <button
