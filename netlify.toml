@@ -1,6 +1,8 @@
 [build]
   command = "npm install --no-audit --no-fund && npm run build"
   publish = "dist"   # use "build" if Create React App
+  [build.environment]
+    NODE_VERSION = "20.11.1"   # any Node 20.x is fine; this pins it
 
 [functions]
   directory = "netlify/functions"
