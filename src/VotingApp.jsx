@@ -29,7 +29,49 @@ export default function VotingApp() {
   const [results, setResults] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   const [selectedSeason] = useState("S25");
-  const [votingDeadline] = useState("2025-09-15T23:59:59");
+  const [votingDeadline, setVotingDeadline] = useState('2025-09-15T23:59:59');
+ const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+
+ // load saved deadline
+ useEffect(() => {
+   const saved = localStorage.getItem('votingDeadline');
+   if (saved) setVotingDeadline(saved);
+ }, []);
+
+ // persist on change
+ useEffect(() => {
+   localStorage.setItem('votingDeadline', votingDeadline);
+ }, [votingDeadline]);
+
+useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      const res = await fetch('/api/managers');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!cancelled && Array.isArray(data?.managers) && data.managers.length) {
+        // Clean, dedupe (case-insensitive), and trim manager names
+        const seen = new Set();
+        const clean = data.managers
+          .map((s) => s?.toString().trim())
+          .filter(Boolean)
+          .filter((name) => {
+            const lower = name.toLowerCase();
+            if (seen.has(lower)) return false;
+            seen.add(lower);
+            return true;
+          });
+        setValidManagers(clean);
+      }
+    } catch (_) {
+      // silently ignore; stay on default list
+    }
+  })();
+  return () => {
+    cancelled = true;
+  };
+}, [defaultManagers]);
 
   // Simulated in-memory vote store
   const [allVotes, setAllVotes] = useState({}); // { managerName: { overall: 'id', division1: 'id', ... } }
@@ -412,84 +454,100 @@ export default function VotingApp() {
   );
 
   // ---- Login ----
-  const login = (rawName) => {
-    const trimmedName = (rawName || "").trim();
-    setVerificationError("");
+const login = (rawName) => {
+  const trimmedName = (rawName || '').trim();
+  setVerificationError('');
 
-    if (!trimmedName) {
-      setVerificationError("Please enter a manager name");
-      return;
-    }
+  if (!trimmedName) {
+    setVerificationError('Please enter a manager name');
+    return;
+  }
 
-    if (votingClosed && !adminUsers.includes(trimmedName)) {
-      const d = new Date(votingDeadline);
-      setVerificationError(
-        `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
-      );
-      return;
-    }
-
-    const isValidManager = validManagers.some(
-      (validName) => validName.toLowerCase() === trimmedName.toLowerCase()
+  // Deadline check (client-side; enforce on server too if using functions)
+  if (votingClosed && !adminUsers.includes(trimmedName)) {
+    const d = new Date(votingDeadline);
+    setVerificationError(
+      `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
     );
-    if (!isValidManager) {
-      setVerificationError(
-        `"${trimmedName}" is not found in the Top 100 manager database. Please check spelling or contact admin.`
-      );
-      return;
-    }
+    return;
+  }
 
-    if (allVotes[trimmedName] && !adminUsers.includes(trimmedName)) {
-      setVerificationError(
-        `"${trimmedName}" has already cast votes. Each manager can only vote once.`
-      );
-      return;
-    }
+  // Find canonical manager name (case-insensitive match from validManagers)
+  const canonicalName = validManagers.find(
+    (validName) => validName.toLowerCase() === trimmedName.toLowerCase()
+  );
 
-    setCurrentManager(trimmedName);
-    setIsLoggedIn(true);
-    setIsAdmin(adminUsers.includes(trimmedName));
-  };
+  if (!canonicalName) {
+    setVerificationError(
+      `"${trimmedName}" is not found in the Top 100 manager database. Please check spelling or contact admin.`
+    );
+    return;
+  }
+
+  // One ballot per manager (case-insensitive check)
+  const hasVoted = Object.keys(allVotes).some(
+    (name) => name.toLowerCase() === canonicalName.toLowerCase()
+  );
+  if (hasVoted && !adminUsers.includes(canonicalName)) {
+    setVerificationError(
+      `"${canonicalName}" has already cast votes. Each manager can only vote once.`
+    );
+    return;
+  }
+
+  // Use canonical name going forward
+  setCurrentManager(canonicalName);
+  setIsLoggedIn(true);
+  setIsAdmin(adminUsers.includes(canonicalName));
+};
+
 
   // ---- Voting ----
-  const submitVote = (category, nomineeId) => {
-    if (!isLoggedIn || votingClosed) return;
+const submitVote = (category, nomineeId) => {
+  if (!isLoggedIn || votingClosed || !currentManager) return;
 
-    setVotes((prev) => ({ ...prev, [category]: nomineeId }));
-    setVotingComplete((prev) => ({ ...prev, [category]: true }));
+  // Always use the canonical name set during login
+  const managerName = currentManager;
 
-    setAllVotes((prev) => ({
-      ...prev,
-      [currentManager]: { ...(prev[currentManager] || {}), [category]: nomineeId },
-    }));
+  // Update local per-user UI state
+  setVotes((prev) => ({ ...prev, [category]: nomineeId }));
+  setVotingComplete((prev) => ({ ...prev, [category]: true }));
 
-    setVoterNames((prev) => ({
-      ...prev,
-      [`${category}_${nomineeId}`]: [
-        ...(prev[`${category}_${nomineeId}`] || []),
-        { name: currentManager, timestamp: new Date().toISOString() },
-      ],
-    }));
+  // Update aggregate vote store keyed by canonical manager name
+  setAllVotes((prev) => ({
+    ...prev,
+    [managerName]: { ...(prev[managerName] || {}), [category]: nomineeId },
+  }));
 
-    // Optional: send to backend
-    try {
-      const nomineeObj = categories[category].nominees.find((n) => n.id === nomineeId);
-      const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
-      fetch("/api/submit-vote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          manager: currentManager,
-          category,
-          nomineeId,
-          nomineeName,
-          season: selectedSeason,
-        }),
-      }).catch(() => {});
-    } catch {
-      /* no-op */
-    }
-  };
+  // Track voter list per nominee
+  setVoterNames((prev) => ({
+    ...prev,
+    [`${category}_${nomineeId}`]: [
+      ...(prev[`${category}_${nomineeId}`] || []),
+      { name: managerName, timestamp: new Date().toISOString() },
+    ],
+  }));
+
+  // Optional: persist to backend using canonical name
+  try {
+    const nomineeObj = categories[category]?.nominees?.find((n) => n.id === nomineeId);
+    const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
+
+    fetch("/api/submit-vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        manager: managerName,      // canonical
+        category,
+        nomineeId,
+        nomineeName,
+        season: selectedSeason,
+      }),
+    }).catch(() => {});
+  } catch {
+    // no-op
+  }
+};
 
   const removeVote = (category, nomineeId, voterName) => {
     if (!isAdmin) return;
@@ -543,6 +601,23 @@ export default function VotingApp() {
     });
     return count;
   };
+
+ const logout = () => {
+   setIsLoggedIn(false);
+   setCurrentManager('');
+   setIsAdmin(false);
+   setVotes({});
+   setVotingComplete({});
+   setResults(false);
+   setVerificationError('');
+ };
+
+ <button
+   onClick={logout}
+    className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition-colors"
+  >
+    Logout
+  </button>
 
   const getTotalVotes = (category) =>
     Object.values(allVotes).filter((mv) => mv[category]).length;
@@ -612,12 +687,13 @@ export default function VotingApp() {
                   </div>
                 </div>
               )}
-              <button
-                onClick={() => setIsLoggedIn(false)}
-                className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition-colors"
-              >
-                Logout
-              </button>
+ <button
+-   onClick={() => setIsLoggedIn(false)}
+   onClick={logout}
+    className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition-colors"
+  >
+    Logout
+  </button>
             </div>
           </div>
         </div>
@@ -775,42 +851,43 @@ export default function VotingApp() {
           <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
           <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
-          <div className="mt-2 text-sm text-yellow-300">
-            <Calendar className="w-4 h-4 inline mr-1" />
-            {getTimeRemaining()}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Enter Your Manager Name
-            </label>
-            <input
-              type="text"
-              placeholder="e.g., Scott Mckenzie"
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") login(e.currentTarget.value);
-              }}
-            />
-            {verificationError && (
-              <p className="mt-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
-                {verificationError}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => {
-              const input = document.querySelector("input");
-              if (input) login(input.value);
+<div className="text-sm text-yellow-300">
+  <Calendar className="w-4 h-4 inline mr-1" />
+  {getTimeRemaining()}
+  {isAdmin && (
+    <span className="ml-3 inline-flex items-center gap-2">
+      {!isEditingDeadline ? (
+        <button
+          onClick={() => setIsEditingDeadline(true)}
+          className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
+        >
+          Edit deadline
+        </button>
+      ) : (
+        <>
+          <input
+            type="datetime-local"
+            className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
+            value={new Date(votingDeadline).toISOString().slice(0, 16)}
+            onChange={(e) => {
+              const v = e.target.value
+                ? new Date(e.target.value).toISOString().slice(0, 19)
+                : '';
+              if (v) setVotingDeadline(v);
             }}
-            className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+          />
+          <button
+            onClick={() => setIsEditingDeadline(false)}
+            className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
           >
-            <User className="w-4 h-4" />
-            Verify & Start Voting
+            Done
           </button>
-        </div>
+        </>
+      )}
+    </span>
+  )}
+</div>
+        
 
         <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
           <div className="flex items-center justify-center gap-1">
