@@ -23,5 +23,4 @@
     "tailwindcss": "^3.4.12",
     "vite": "^5.4.9"
   }
-{ "managers": [ { "club": "...", "name": "...", "active": true }, ... ] }
 }
