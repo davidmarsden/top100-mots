@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Optional: small defaults that make forms look nicer */
+input, button, textarea, select {
+  @apply outline-none;
+}
