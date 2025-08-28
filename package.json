@@ -1,33 +1,26 @@
 {
   "name": "top100-mots",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --port 4173"
+    "preview": "vite preview"
   },
-
-{
-  "engines": {
-    "node": "20.x"
-  }
-}
-
   "dependencies": {
-    "lucide-react": "^0.460.0",
+    "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@tailwindcss/aspect-ratio": "^0.4.2",
-    "@tailwindcss/forms": "^0.5.10",
-    "@tailwindcss/typography": "^0.5.16",
-    "@vitejs/plugin-react": "^4.3.0",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.12",
-    "vite": "^5.4.0"
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.12",
+    "vite": "^5.4.9"
   }
 }
