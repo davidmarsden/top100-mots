@@ -1,83 +1,80 @@
-// /netlify/functions/submit-vote.js
-const { google } = require("googleapis");
+// Netlify Functions v2 (ESM). Appends rows to Votes_<season> with 5 columns:
+// Timestamp | Manager | Category | NomineeId | NomineeName
+import { google } from "googleapis";
 
-async function ensureSheetExists(sheets, spreadsheetId, sheetTitle) {
-  const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === sheetTitle);
-  if (exists) return;
+async function ensureHeader(sheets, spreadsheetId, sheetTitle) {
+  try {
+    const meta = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetTitle}!A1:E1`,
+    });
+    const exists = (meta.data.values || []).length > 0;
+    if (exists) return;
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        { addSheet: { properties: { title: sheetTitle } } },
-        {
-          updateCells: {
-            range: { sheetId: null },
-            rows: [
-              {
-                values: [
-                  { userEnteredValue: { stringValue: "timestamp" } },
-                  { userEnteredValue: { stringValue: "season" } },
-                  { userEnteredValue: { stringValue: "managerName" } },
-                  { userEnteredValue: { stringValue: "managerClub" } },
-                  { userEnteredValue: { stringValue: "category" } },
-                  { userEnteredValue: { stringValue: "nomineeId" } },
-                  { userEnteredValue: { stringValue: "nomineeName" } },
-                ],
-              },
-            ],
-            fields: "userEnteredValue",
-          },
-        },
-      ],
-    },
-  });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetTitle}!A1:E1`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [["Timestamp", "Manager", "Category", "NomineeId", "NomineeName"]],
+      },
+    });
+  } catch {
+    // sheet may not exist yet -> create
+    const fileMeta = await sheets.spreadsheets.get({ spreadsheetId });
+    const has = fileMeta.data.sheets?.some((s) => s.properties?.title === sheetTitle);
+    if (!has) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: sheetTitle } } }] },
+      });
+    }
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetTitle}!A1:E1`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [["Timestamp", "Manager", "Category", "NomineeId", "NomineeName"]],
+      },
+    });
+  }
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
+export default async (request) => {
+  if (request.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
   }
 
   try {
-    const payload = JSON.parse(event.body || "{}");
-    const {
-      season,
-      category,
-      nomineeId,
-      nomineeName,
-      manager,      // canonical manager name
-      managerClub,  // optional (for disambiguation)
-    } = payload;
+    const { season, category, nomineeId, nomineeName, manager } = await request.json();
 
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     const seasonCode = (season || process.env.ALLOWED_SEASON || "S25").replace(/\s+/g, "");
     const sheetTitle = `Votes_${seasonCode}`;
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "{}"),
+      credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT || "{}"),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
     const sheets = google.sheets({ version: "v4", auth });
 
-    await ensureSheetExists(sheets, spreadsheetId, sheetTitle);
+    await ensureHeader(sheets, spreadsheetId, sheetTitle);
 
     const nowIso = new Date().toISOString();
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${sheetTitle}!A:G`,
+      range: `${sheetTitle}!A:E`,
       valueInputOption: "RAW",
       requestBody: {
-        values: [
-          [nowIso, seasonCode, manager || "", managerClub || "", category || "", nomineeId || "", nomineeName || ""],
-        ],
+        values: [[nowIso, manager || "", category || "", nomineeId || "", nomineeName || ""]],
       },
     });
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "content-type": "application/json" },
+    });
   } catch (err) {
-    console.error("submit-vote error:", err);
-    return { statusCode: 500, body: "submit-vote failed" };
+    console.error("submit-vote error", err);
+    return new Response("submit-vote failed", { status: 500 });
   }
 };
