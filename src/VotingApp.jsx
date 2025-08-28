@@ -51,37 +51,47 @@ setIsAdmin(adminUsers.includes(trimmedName));
 
 };
 
-// ---- Voting ---- const submitVote = (category, nomineeId) => { if (!isLoggedIn || votingClosed) return;
+// ---- Voting ----
+const submitVote = (category, nomineeId) => {
+  if (!isLoggedIn || votingClosed) return;
 
-setVotes((prev) => ({ ...prev, [category]: nomineeId }));
-setVotingComplete((prev) => ({ ...prev, [category]: true }));
+  setVotes((prev) => ({ ...prev, [category]: nomineeId }));
+  setVotingComplete((prev) => ({ ...prev, [category]: true }));
 
-// Save into in-memory results
-setAllVotes((prev) => ({
-  ...prev,
-  [currentManager]: { ...(prev[currentManager] || {}), [category]: nomineeId }
-}));
+  // Save into in-memory results
+  setAllVotes((prev) => ({
+    ...prev,
+    [currentManager]: { ...(prev[currentManager] || {}), [category]: nomineeId },
+  }));
 
-setVoterNames((prev) => ({
-  ...prev,
-  [`${category}_${nomineeId}`]: [
-    ...(prev[`${category}_${nomineeId}`] || []),
-    { name: currentManager, timestamp: new Date().toISOString() }
-  ]
-}));
+  setVoterNames((prev) => ({
+    ...prev,
+    [`${category}_${nomineeId}`]: [
+      ...(prev[`${category}_${nomineeId}`] || []),
+      { name: currentManager, timestamp: new Date().toISOString() },
+    ],
+  }));
 
-// Persist to backend (optional)
-try {
-  const nomineeObj = categories[category].nominees.find(n => n.id === nomineeId);
-  const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
-  fetch('/api/submit-vote', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ manager: currentManager, category, nomineeId, nomineeName, season: selectedSeason })
-  }).catch(() => {});
-} catch (_) {}
+  // Persist to backend (optional)
+  try {
+    const nomineeObj = categories[category].nominees.find((n) => n.id === nomineeId);
+    const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
 
-};
+    fetch("/api/submit-vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        manager: currentManager,
+        category,
+        nomineeId,
+        nomineeName,
+        season: selectedSeason,
+      }),
+    }).catch(() => {});
+  } catch (_) {
+    // no-op
+  }
+}; // <-- closes submitVote (exactly one closing brace + semicolon)
 
 const removeVote = (category, nomineeId, voterName) => { if (!isAdmin) return;
 
