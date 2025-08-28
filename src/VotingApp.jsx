@@ -141,7 +141,22 @@ const getVoteCount = (category, nomineeId) => { let count = 0; Object.values(all
 
 const getTotalVotes = (category) => Object.values(allVotes).filter((mv) => mv[category]).length;
 
-const getTimeRemaining = () => { const now = new Date(); const deadline = new Date(votingDeadline); const diff = deadline.getTime() - now.getTime(); if (diff <= 0) return 'Voting Closed'; const DAYS = 1000 * 60 * 60 * 24; const HOURS = 1000 * 60 * 60; const days = Math.floor(diff / DAYS); const hours = Math.floor((diff % DAYS) / HOURS); return ${days}d ${hours}h remaining; };
+const getTimeRemaining = () => {
+  const now = new Date();
+  const deadline = new Date(votingDeadline);
+  const diff = deadline.getTime() - now.getTime();
+  if (diff <= 0) return "Voting Closed";
+
+  const MINUTES = 1000 * 60;
+  const HOURS = MINUTES * 60;
+  const DAYS = HOURS * 24;
+
+  const days = Math.floor(diff / DAYS);
+  const hours = Math.floor((diff % DAYS) / HOURS);
+  const minutes = Math.floor((diff % HOURS) / MINUTES);
+
+  return `${days}d ${hours}h ${minutes}m remaining`;
+}; // <-- important semicolon
 
 // ---- UI ---- if (!isLoggedIn) { return ( <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4"> <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20"> <div className="text-center mb-6"> <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" /> <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1> <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2> <div className="mt-2 text-sm text-yellow-300"> <Calendar className="w-4 h-4 inline mr-1" /> {getTimeRemaining()} </div> </div>
 
