@@ -218,120 +218,175 @@ if (!isLoggedIn) {
   );
 }
 
-return ( <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900"> {/* Header */} <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10"> <div className="max-w-6xl mx-auto px-4 py-4"> <div className="flex items-center justify-between"> <div className="flex items-center gap-3"> <Trophy className="w-8 h-8 text-yellow-400" /> <div> <h1 className="text-xl font-bold text-white">Season 25 Manager Awards</h1> <p className="text-sm text-gray-300">Voting as: {currentManager}</p> </div> </div> <div className="flex items-center gap-4"> <div className="text-sm text-yellow-300"> <Calendar className="w-4 h-4 inline mr-1" /> {getTimeRemaining()} </div> <button onClick={() => setResults((s) => !s)} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2" > {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />} {results ? 'Hide Results' : 'Show Results'} </button> <div className="text-sm text-gray-300"> <Users className="w-4 h-4 inline mr-1" /> {Object.keys(allVotes).length} managers voted </div> {isAdmin && ( <div className="flex items-center gap-2"> <button
-onClick={exportResults}
-className="bg-green-500/20 hover:bg-green-500/30 text-green-200 px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
-> <Download className="w-4 h-4" /> Export </button> <div className="text-xs text-orange-300 flex items-center gap-1"> <Shield className="w-3 h-3" /> Admin </div> </div> )} <button onClick={() => setIsLoggedIn(false)} className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition-colors" > Logout </button> </div> </div> </div> </div>
-
-<div className="max-w-6xl mx-auto px-4 py-6">
-    {/* Category Navigation */}
-    <div className="flex flex-wrap gap-2 mb-6">
-      {Object.entries(categories).map(([key, category]) => {
-        const Icon = category.icon;
-        const isComplete = !!votingComplete[key];
-        return (
-          <button
-            key={key}
-            onClick={() => setActiveCategory(key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-              activeCategory === key ? 'bg-yellow-500 text-black' : 'bg-white/10 text-white hover:bg-white/20'
-            } ${isComplete ? 'ring-2 ring-green-400' : ''}`}
-          >
-            <Icon className="w-4 h-4" />
-            {category.title}
-            {isComplete && <CheckCircle className="w-4 h-4 text-green-400" />}
-          </button>
-        );
-      })}
-    </div>
-
-    {/* Current Category */}
-    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
-      <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          {React.createElement(categories[activeCategory].icon, { className: 'w-6 h-6 text-yellow-400' })}
-          <h2 className="text-2xl font-bold text-white">{categories[activeCategory].title}</h2>
-        </div>
-        {votingComplete[activeCategory] && (
-          <div className="mt-2 flex items-center gap-2 text-green-400">
-            <CheckCircle className="w-4 h-4" />
-            <span className="text-sm">Vote submitted successfully!</span>
-          </div>
-        )}
-      </div>
-
-          <div className="p-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              {categories[activeCategory].nominees.map((nominee) => {
-                const isVoted = votes[activeCategory] === nominee.id;
-                const voteCount = getVoteCount(activeCategory, nominee.id);
-                const totalVotes = getTotalVotes(activeCategory);
-                const percentage = totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
-
-                return (
-                  <div
-                    key={nominee.id}
-                    className={`bg-white/5 border rounded-lg p-4 transition-all cursor-pointer hover:bg-white/10 ${
-                      isVoted ? 'border-green-400 bg-green-500/20' : 'border-white/20 hover:border-white/40'
-                    } ${(votingComplete[activeCategory] || votingClosed) ? 'cursor-not-allowed opacity-75' : ''}`}
-                    onClick={() => !votingComplete[activeCategory] && !votingClosed && submitVote(activeCategory, nominee.id)}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
-                        <p className="text-yellow-400 font-medium">{nominee.club}</p>
-                      </div>
-                      {isVoted && <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />}
-                    </div>
-
-                    <div className="mb-3">
-                      <p className="text-orange-300 font-medium text-sm mb-1">{nominee.achievement}</p>
-                      <p className="text-gray-300 text-sm">{nominee.description}</p>
-                    </div>
-
-                    {results && (
-                      <div className="mt-3 pt-3 border-t border-white/10">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-300">{voteCount} votes</span>
-                          <span className="text-white font-medium">{percentage}%</span>
-                        </div>
-                        <div className="mt-1 bg-white/10 rounded-full h-2">
-                          <div
-                            className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full h-2 transition-all duration-500"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                        {isAdmin && voteCount > 0 && (
-                          <details className="mt-3">
-                            <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">Admin: View voters ({voteCount})</summary>
-                            <div className="mt-2 text-xs text-gray-200 space-y-1 max-h-40 overflow-y-auto pr-1">
-                              {(voterNames[`${activeCategory}_${nominee.id}`] || []).map((v) => (
-                                <div key={`${v.name}-${v.timestamp}`} className="flex items-center justify-between gap-2 bg-white/5 px-2 py-1 rounded">
-                                  <span className="truncate">{v.name}</span>
-                                  <span className="opacity-70">{fmtDate(v.timestamp)}</span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeVote(activeCategory, nominee.id, v.name);
-                                    }}
-                                    className="ml-2 inline-flex items-center gap-1 text-red-300 hover:text-red-200"
-                                  >
-                                    <Trash2 className="w-3 h-3" /> Remove
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+/* -------------------------
+   LOGGED-IN APP RENDER
+------------------------- */
+return (
+  <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
+    {/* Header */}
+    <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10">
+      <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Trophy className="w-8 h-8 text-yellow-400" />
+            <div>
+              <h1 className="text-xl font-bold text-white">Season 25 Manager Awards</h1>
+              <p className="text-sm text-gray-300">Voting as: {currentManager}</p>
             </div>
           </div>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-yellow-300">
+              <Calendar className="w-4 h-4 inline mr-1" />
+              {getTimeRemaining()}
+            </div>
+            <button
+              onClick={() => setResults((s) => !s)}
+              className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+            >
+              {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {results ? 'Hide Results' : 'Show Results'}
+            </button>
+            <div className="text-sm text-gray-300">
+              <Users className="w-4 h-4 inline mr-1" />
+              {Object.keys(allVotes).length} managers voted
+            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportResults}
+                  className="bg-green-500/20 hover:bg-green-500/30 text-green-200 px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+                <div className="text-xs text-orange-300 flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  Admin
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => setIsLoggedIn(false)}
+              className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  );
-}
+
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      {/* Category Navigation */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {Object.entries(categories).map(([key, category]) => {
+          const Icon = category.icon;
+          const isComplete = !!votingComplete[key];
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveCategory(key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                activeCategory === key ? 'bg-yellow-500 text-black' : 'bg-white/10 text-white hover:bg-white/20'
+              } ${isComplete ? 'ring-2 ring-green-400' : ''}`}
+            >
+              <Icon className="w-4 h-4" />
+              {category.title}
+              {isComplete && <CheckCircle className="w-4 h-4 text-green-400" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Current Category */}
+      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+        <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            {React.createElement(categories[activeCategory].icon, { className: 'w-6 h-6 text-yellow-400' })}
+            <h2 className="text-2xl font-bold text-white">{categories[activeCategory].title}</h2>
+          </div>
+          {votingComplete[activeCategory] && (
+            <div className="mt-2 flex items-center gap-2 text-green-400">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-sm">Vote submitted successfully!</span>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            {categories[activeCategory].nominees.map((nominee) => {
+              const isVoted = votes[activeCategory] === nominee.id;
+              const voteCount = getVoteCount(activeCategory, nominee.id);
+              const totalVotes = getTotalVotes(activeCategory);
+              const percentage = totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
+
+              return (
+                <div
+                  key={nominee.id}
+                  className={`bg-white/5 border rounded-lg p-4 transition-all cursor-pointer hover:bg-white/10 ${
+                    isVoted ? 'border-green-400 bg-green-500/20' : 'border-white/20 hover:border-white/40'
+                  } ${(votingComplete[activeCategory] || votingClosed) ? 'cursor-not-allowed opacity-75' : ''}`}
+                  onClick={() => !votingComplete[activeCategory] && !votingClosed && submitVote(activeCategory, nominee.id)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
+                      <p className="text-yellow-400 font-medium">{nominee.club}</p>
+                    </div>
+                    {isVoted && <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />}
+                  </div>
+
+                  <div className="mb-3">
+                    <p className="text-orange-300 font-medium text-sm mb-1">{nominee.achievement}</p>
+                    <p className="text-gray-300 text-sm">{nominee.description}</p>
+                  </div>
+
+                  {results && (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-300">{voteCount} votes</span>
+                        <span className="text-white font-medium">{percentage}%</span>
+                      </div>
+                      <div className="mt-1 bg-white/10 rounded-full h-2">
+                        <div
+                          className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full h-2 transition-all duration-500"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      {isAdmin && voteCount > 0 && (
+                        <details className="mt-3">
+                          <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">
+                            Admin: View voters ({voteCount})
+                          </summary>
+                          <div className="mt-2 text-xs text-gray-200 space-y-1 max-h-40 overflow-y-auto pr-1">
+                            {(voterNames[`${activeCategory}_${nominee.id}`] || []).map((v) => (
+                              <div key={`${v.name}-${v.timestamp}`} className="flex items-center justify-between gap-2 bg-white/5 px-2 py-1 rounded">
+                                <span className="truncate">{v.name}</span>
+                                <span className="opacity-70">{fmtDate(v.timestamp)}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeVote(activeCategory, nominee.id, v.name);
+                                  }}
+                                  className="ml-2 inline-flex items-center gap-1 text-red-300 hover:text-red-200"
+                                >
+                                  <Trash2 className="w-3 h-3" /> Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+); // end logged-in return
+} // end VotingApp component
