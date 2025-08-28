@@ -15,148 +15,249 @@ import {
   Trash2,
 } from "lucide-react";
 
-// Helper: format ISO date/time to local string
+/* ===========================
+   Helpers
+=========================== */
+
+// Human date for voter list
 const fmtDate = (iso) => new Date(iso).toLocaleString();
 
+// Normalize managers coming from either strings or { name, club, active }
+const normalizeManagers = (raw) => {
+  if (!Array.isArray(raw)) return [];
+
+  const objs = raw.map((m) => {
+    if (m && typeof m === "object") {
+      const name = (m.name ?? "").toString().trim();
+      const club = (m.club ?? "").toString().trim();
+      const active = m.active === true || `${m.active}`.toLowerCase() === "true";
+      return { name, club, active };
+    }
+    // string fallback
+    const name = (m ?? "").toString().trim();
+    return { name, club: "", active: true };
+  });
+
+  // filter to active with names
+  const filtered = objs.filter((x) => x.name && x.active);
+
+  // dedupe by (name|club), case-insensitive
+  const seen = new Set();
+  const key = (n, c) =>
+    `${n}`.trim().toLowerCase() + "|" + `${c || ""}`.trim().toLowerCase();
+
+  return filtered.filter((x) => {
+    const k = key(x.name, x.club);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+};
+
+const findMatchesByName = (list, name) =>
+  list.filter(
+    (m) =>
+      m.name &&
+      m.name.trim().toLowerCase() === (name || "").trim().toLowerCase()
+  );
+
+const findCanonicalManager = (list, name, clubOptional) => {
+  const matches = findMatchesByName(list, name);
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+  if (!clubOptional) return "AMBIGUOUS";
+  const byClub = matches.find(
+    (m) =>
+      (m.club || "").trim().toLowerCase() ===
+      (clubOptional || "").trim().toLowerCase()
+  );
+  return byClub || null;
+};
+
+/* ===========================
+   Component
+=========================== */
+
 export default function VotingApp() {
-  // ---------- Core state ----------
-  const [currentManager, setCurrentManager] = useState(""); // display name e.g. "Jay Jones (Dinamo Zagreb)"
+  // ---- State ----
+  const [currentManager, setCurrentManager] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [votes, setVotes] = useState({}); // per-session UI selection
-  const [votingComplete, setVotingComplete] = useState({}); // category → true
+  const [votes, setVotes] = useState({});
+  const [votingComplete, setVotingComplete] = useState({});
   const [activeCategory, setActiveCategory] = useState("overall");
   const [results, setResults] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   const [selectedSeason] = useState("S25");
 
-  // Deadline (editable by admin)
+  // deadline (editable by admins)
   const [votingDeadline, setVotingDeadline] = useState("2025-09-15T23:59:59");
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
 
-  // Persist deadline locally
-  useEffect(() => {
-    const saved = localStorage.getItem("votingDeadline");
-    if (saved) setVotingDeadline(saved);
-  }, []);
-  useEffect(() => {
-    localStorage.setItem("votingDeadline", votingDeadline);
-  }, [votingDeadline]);
-
-  // In-memory vote store (simulated)
-  // allVotes is keyed by canonical composite key "name|club"
-  const [allVotes, setAllVotes] = useState({});
-  // voterNames tracks display voters list per nominee
-  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ { name: display, timestamp } ] }
-
-  // ---------- Admins ----------
-  const adminUsers = useMemo(
-    () => ["David Marsden", "Mister TRX", "Heath Brown"],
-    []
-  );
-
-  // ---------- Valid managers (fallback defaults as objects) ----------
- // defaultManagers is your array of strings.
-const [validManagers, setValidManagers] = useState(
-  defaultManagers.map((n) => ({ name: n, club: "" }))
-);
-
-// ---------- Fetch managers from Netlify Function (Google Sheet) ----------
-useEffect(() => {
-  let cancelled = false;
-
-  // truthiness for the "Active" column
-  const truthy = (v) => {
-    if (typeof v === "boolean") return v;
-    if (typeof v === "number") return v === 1;
-    if (typeof v === "string")
-      return ["true", "yes", "1", "y"].includes(v.trim().toLowerCase());
-    return false;
-  };
-
-  const toPairKey = (name, club) =>
-    `${(name || "").trim().toLowerCase()}|${(club || "").trim().toLowerCase()}`;
-
-  const normalizeRows = (rows) => {
-    if (!Array.isArray(rows)) return [];
-
-    const out = [];
-    const seen = new Set();
-
-    for (const row of rows) {
-      let name = "";
-      let club = "";
-      let active = true; // default true if absent
-
-      if (typeof row === "string") {
-        name = row.trim();
-      } else if (Array.isArray(row)) {
-        // Your sheet order: [club, name, active]
-        club = (row[0] ?? "").toString().trim();
-        name = (row[1] ?? "").toString().trim();
-        active = truthy(row[2]);
-      } else if (row && typeof row === "object") {
-        // Accept various casings/keys
-        const r = Object.fromEntries(
-          Object.entries(row).map(([k, v]) => [k.toLowerCase(), v])
-        );
-        name = (r.name ?? r.manager ?? "").toString().trim();
-        club = (r.club ?? "").toString().trim();
-        const a = r.active ?? row.Active ?? row.active;
-        if (a !== undefined) active = truthy(a);
-      }
-
-      if (!name) continue;
-      if (!active) continue;
-
-      const key = toPairKey(name, club);
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      out.push({ name, club });
-    }
-
-    return out;
-  };
-
-  (async () => {
-    try {
-      const res = await fetch("/api/managers");
-      if (!res.ok) return;
-      const data = await res.json();
-      if (cancelled) return;
-
-      const rows = Array.isArray(data?.managers) ? data.managers : [];
-      const normalized = normalizeRows(rows);
-
-      // Fallback to defaults (as objects) if nothing valid came back
-      setValidManagers(
-        normalized.length
-          ? normalized
-          : defaultManagers.map((n) => ({ name: n, club: "" }))
-      );
-    } catch {
-      setValidManagers(defaultManagers.map((n) => ({ name: n, club: "" })));
-    }
-  })();
-
-  return () => {
-    cancelled = true;
-  };
-}, [defaultManagers]);
-
-  // ---------- Login inputs / ambiguity handling ----------
+  // login inputs
   const [nameInput, setNameInput] = useState("");
   const [clubInput, setClubInput] = useState("");
   const [needsClub, setNeedsClub] = useState(false);
 
-  // ---------- Client-side closed flag ----------
+  // load saved deadline
+  useEffect(() => {
+    const saved = localStorage.getItem("votingDeadline");
+    if (saved) setVotingDeadline(saved);
+  }, []);
+
+  // persist deadline
+  useEffect(() => {
+    localStorage.setItem("votingDeadline", votingDeadline);
+  }, [votingDeadline]);
+
+  // Simulated in-memory vote store
+  const [allVotes, setAllVotes] = useState({}); // { managerName: { overall: 'id', ... } }
+  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ { name, timestamp } ] }
+
+  // ---- Admins ----
+  const adminUsers = useMemo(
+    () => ["David Marsden", "Regan Thompson"],
+    []
+  );
+
+  // ---- Fallback Managers (strings → normalized objects) ----
+  const defaultManagers = useMemo(
+    () =>
+      normalizeManagers([
+        "ANMOL SATAM",
+        "Adam",
+        "Alessandro Ioli",
+        "Alessio Tonato",
+        "Andrew Kelly",
+        "André Guerra",
+        "Anthony Guardiola",
+        "Ash L",
+        "Attilio Bonnici",
+        "Bharath Raj",
+        "Bojan H",
+        "Bruno Neto^^",
+        "Carl Martin",
+        "Carlos Azevedo",
+        "Carlos Miranda",
+        "Chris Baggio",
+        "Chris East",
+        "Chris Meida",
+        "Chris Taylor",
+        "Chris Union",
+        "D. J.",
+        "Dan Wallace",
+        "Daniel N.Ferreira",
+        "Dario Saviano",
+        "Dave Oz Osborne",
+        "David Inglis",
+        "David Marsden",
+        "Davy Vandendriessche",
+        "Doug Earle",
+        "Everton Luiz",
+        "Frank Hirst",
+        "Fredrik Johansson",
+        "Gav Harmer",
+        "Gianluca Ghio",
+        "Glen Mullan",
+        "Golden Bear",
+        "Gregg Robinson",
+        "Gursimran Brar",
+        "Heath Brown",
+        "Hugo Costa",
+        "Ignazio Barraco",
+        "James Mckenzie",
+        "Jamie Alldridge",
+        "Jay Jones",
+        "Jerod Ramnarine",
+        "Jibriil Mohamed",
+        "Josh McMillan",
+        "João Rocha",
+        "Luís André Libras-Boas",
+        "Marc Ques",
+        "Marco G",
+        "Marian Moise",
+        "Melvin Udall",
+        "Mike Scallotti",
+        "Mister TRX",
+        "Mohammed Ajmal",
+        "Neil Frankland",
+        "Noisy Steve",
+        "Nuno Marques",
+        "Pane Trifunov",
+        "Paolo Everland",
+        "Patrik Breznický",
+        "Paul Masters",
+        "Paul Rimmer",
+        "Paulo Lopes",
+        "Pedro Vilar",
+        "RJ Alston",
+        "Regan Thompson",
+        "Ricardo Alexandre",
+        "Ricardo Ferreira",
+        'Richard "Skippy\' Spurr',
+        "Rob Ryan",
+        "Salvatore Zerbo",
+        "Saverio Cordiano",
+        "Scott Mckenzie",
+        "Shashi P",
+        "Sheene Ralspunsky",
+        "Sir Stephen Beddows (God)",
+        "Steven Allington",
+        "Stuart Monteith",
+        "Tharanidharan",
+        "The Godfather",
+        "The Special Gyan",
+        "Vincenzo Martorano",
+        "Walter Gogh",
+        "Wayne Bullough",
+        "Zé Quim",
+        "feargal Hickey",
+        "jay jones",
+        "kevin mcgregor",
+        "paddy d",
+        "rOsS fAlCOn3r",
+        "rob cast",
+        "simon thomas",
+        "yamil Mc02",
+        "⍟Greg Bilboaツ",
+        "⚽ FM",
+        "Landucci",
+        "Murilo",
+        "The ⭐⭐strongest⭐⭐",
+      ]),
+    []
+  );
+
+  const [validManagers, setValidManagers] = useState(defaultManagers);
+
+  // Try to hydrate from Google Sheet via Netlify Function: /api/managers
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/managers");
+        if (!res.ok) return;
+        const data = await res.json(); // { managers: [{club,name,active} ...] } expected
+        const fromSheets = normalizeManagers(data?.managers || []);
+        if (!cancelled && fromSheets.length) {
+          setValidManagers(fromSheets);
+        }
+      } catch (e) {
+        console.warn("Managers fetch failed; using fallback", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Client-side “closed” flag (still enforce server-side if using functions)
   const votingClosed = useMemo(
     () => new Date() > new Date(votingDeadline),
     [votingDeadline]
   );
 
-  // ---------- Categories ----------
+  // ---- Categories ----
   const categories = useMemo(
     () => ({
       overall: {
@@ -417,43 +518,25 @@ useEffect(() => {
     []
   );
 
-  // ---------- Manager helpers ----------
-  const canonicalKey = (name, club) =>
-    `${name}`.trim().toLowerCase() + "|" + `${club || ""}`.trim().toLowerCase();
+  /* ===========================
+     Auth / Voting
+  =========================== */
 
-  const findMatchesByName = (name) =>
-    validManagers.filter(
-      (m) =>
-        m.name && m.name.trim().toLowerCase() === name.trim().toLowerCase()
-    );
-
-  const findCanonicalManager = (name, clubOptional) => {
-    const matches = findMatchesByName(name);
-    if (matches.length === 0) return null;
-    if (matches.length === 1) return matches[0];
-    if (!clubOptional) return "AMBIGUOUS"; // need club selection
-    const byClub = matches.find(
-      (m) =>
-        (m.club || "").trim().toLowerCase() ===
-        clubOptional.trim().toLowerCase()
-    );
-    return byClub || null;
-  };
-
-  // ---------- Login ----------
   const login = (rawName, rawClub) => {
     const trimmedName = (rawName || "").trim();
     const trimmedClub = (rawClub || "").trim();
     setVerificationError("");
-    setNeedsClub(false);
 
     if (!trimmedName) {
       setVerificationError("Please enter a manager name");
       return;
     }
 
-    // Deadline check (client-side)
-    if (votingClosed && !adminUsers.includes(trimmedName)) {
+    // Deadline check for non-admins
+    const isAdminName = adminUsers.some(
+      (a) => a.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (votingClosed && !isAdminName) {
       const d = new Date(votingDeadline);
       setVerificationError(
         `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
@@ -461,82 +544,88 @@ useEffect(() => {
       return;
     }
 
-    const match = findCanonicalManager(trimmedName, trimmedClub);
+    const found = findCanonicalManager(validManagers, trimmedName, trimmedClub);
 
-    if (match === "AMBIGUOUS") {
+    if (found === "AMBIGUOUS") {
       setNeedsClub(true);
       setVerificationError(
-        `Multiple managers named "${trimmedName}" found. Please select a club.`
+        `Multiple managers named "${trimmedName}". Please select your club.`
       );
       return;
     }
-
-    if (!match) {
+    if (!found) {
       setVerificationError(
         `"${trimmedName}" is not in the Top 100 (or is inactive). Please check spelling or contact admin.`
       );
       return;
     }
 
-    const key = canonicalKey(match.name, match.club);
+    const canonicalName = found.name;
 
-    // One ballot per manager key (name+club)
+    // one ballot per manager (case-insensitive)
     const hasVoted = Object.keys(allVotes).some(
-      (k) => k.toLowerCase() === key.toLowerCase()
+      (n) => n.trim().toLowerCase() === canonicalName.trim().toLowerCase()
     );
-    if (hasVoted && !adminUsers.includes(match.name)) {
+    const isAdminCanonical = adminUsers.some(
+      (a) => a.toLowerCase() === canonicalName.toLowerCase()
+    );
+    if (hasVoted && !isAdminCanonical) {
       setVerificationError(
-        `"${match.name}${match.club ? " (" + match.club + ")" : ""}" has already cast votes. One ballot per manager.`
+        `"${canonicalName}" has already cast votes. Each manager can only vote once.`
       );
       return;
     }
 
-    // Use display name like "Name (Club)" for clarity in UI
-    setCurrentManager(`${match.name}${match.club ? " (" + match.club + ")" : ""}`);
+    setCurrentManager(canonicalName);
     setIsLoggedIn(true);
-    setIsAdmin(adminUsers.includes(match.name));
+    setIsAdmin(isAdminCanonical);
   };
 
-  // ---------- Voting ----------
+  const logout = () => {
+    setIsLoggedIn(false);
+    setCurrentManager("");
+    setIsAdmin(false);
+    setVotes({});
+    setVotingComplete({});
+    setResults(false);
+    setVerificationError("");
+    setNameInput("");
+    setClubInput("");
+    setNeedsClub(false);
+  };
+
   const submitVote = (category, nomineeId) => {
     if (!isLoggedIn || votingClosed || !currentManager) return;
 
-    // Derive name+club from the display string "Name (Club)" if present
-    const m = currentManager.match(/^(.*?)(?:\s\((.*)\))?$/);
-    const namePart = (m?.[1] || "").trim();
-    const clubPart = (m?.[2] || "").trim();
-    const key = canonicalKey(namePart, clubPart);
+    const managerName = currentManager;
 
     setVotes((prev) => ({ ...prev, [category]: nomineeId }));
     setVotingComplete((prev) => ({ ...prev, [category]: true }));
 
     setAllVotes((prev) => ({
       ...prev,
-      [key]: { ...(prev[key] || {}), [category]: nomineeId },
+      [managerName]: { ...(prev[managerName] || {}), [category]: nomineeId },
     }));
 
     setVoterNames((prev) => ({
       ...prev,
       [`${category}_${nomineeId}`]: [
         ...(prev[`${category}_${nomineeId}`] || []),
-        { name: currentManager, timestamp: new Date().toISOString() }, // display string
+        { name: managerName, timestamp: new Date().toISOString() },
       ],
     }));
 
-    // Optional: persist to backend
     try {
       const nomineeObj = categories[category]?.nominees?.find(
         (n) => n.id === nomineeId
       );
       const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
+
       fetch("/api/submit-vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          manager: currentManager, // display
-          managerKey: key, // canonical key for backend if you want
-          name: namePart,
-          club: clubPart,
+          manager: managerName,
           category,
           nomineeId,
           nomineeName,
@@ -548,33 +637,27 @@ useEffect(() => {
     }
   };
 
-  const removeVote = (category, nomineeId, voterDisplay) => {
+  const removeVote = (category, nomineeId, voterName) => {
     if (!isAdmin) return;
-
-    // voterDisplay is like "Name (Club)" (or just "Name")
-    const m = (voterDisplay || "").match(/^(.*?)(?:\s\((.*)\))?$/);
-    const namePart = (m?.[1] || "").trim();
-    const clubPart = (m?.[2] || "").trim();
-    const key = canonicalKey(namePart, clubPart);
 
     setVoterNames((prev) => ({
       ...prev,
       [`${category}_${nomineeId}`]: (prev[`${category}_${nomineeId}`] || []).filter(
-        (v) => v.name !== voterDisplay
+        (v) => v.name !== voterName
       ),
     }));
 
     setAllVotes((prev) => {
       const next = { ...prev };
-      if (next[key]?.[category]) {
-        delete next[key][category];
-        if (Object.keys(next[key]).length === 0) delete next[key];
+      if (next[voterName]?.[category]) {
+        delete next[voterName][category];
+        if (Object.keys(next[voterName]).length === 0) delete next[voterName];
       }
       return next;
     });
 
-    // Optional: backend revoke
-    // fetch('/api/remove-vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ managerKey: key, category, nomineeId, season: selectedSeason }) });
+    // Optional: backend revoke call
+    // fetch('/api/remove-vote', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ manager: voterName, category, nomineeId, season: selectedSeason }) });
   };
 
   const exportResults = () => {
@@ -627,22 +710,14 @@ useEffect(() => {
     return `${days}d ${hours}h ${minutes}m remaining`;
   };
 
-  const logout = () => {
-    setIsLoggedIn(false);
-    setCurrentManager("");
-    setIsAdmin(false);
-    setVotes({});
-    setVotingComplete({});
-    setResults(false);
-    setVerificationError("");
-    setNameInput("");
-    setClubInput("");
-    setNeedsClub(false);
-  };
+  /* ===========================
+     UI
+  =========================== */
 
-  // ---------- UI ----------
   return isLoggedIn ? (
-    // ===== LOGGED-IN APP =====
+    // -------------------------
+    // LOGGED-IN APP
+    // -------------------------
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10">
@@ -663,42 +738,6 @@ useEffect(() => {
               <div className="text-sm text-yellow-300">
                 <Calendar className="w-4 h-4 inline mr-1" />
                 {getTimeRemaining()}
-                {isAdmin && (
-                  <span className="ml-3 inline-flex items-center gap-2">
-                    {!isEditingDeadline ? (
-                      <button
-                        onClick={() => setIsEditingDeadline(true)}
-                        className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-                      >
-                        Edit deadline
-                      </button>
-                    ) : (
-                      <>
-                        <input
-                          type="datetime-local"
-                          className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-                          value={new Date(votingDeadline)
-                            .toISOString()
-                            .slice(0, 16)}
-                          onChange={(e) => {
-                            const v = e.target.value
-                              ? new Date(e.target.value)
-                                  .toISOString()
-                                  .slice(0, 19)
-                              : "";
-                            if (v) setVotingDeadline(v);
-                          }}
-                        />
-                        <button
-                          onClick={() => setIsEditingDeadline(false)}
-                          className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
-                        >
-                          Done
-                        </button>
-                      </>
-                    )}
-                  </span>
-                )}
               </div>
               <button
                 onClick={() => setResults((s) => !s)}
@@ -815,7 +854,9 @@ useEffect(() => {
                         <h3 className="text-lg font-semibold text-white">
                           {nominee.name}
                         </h3>
-                        <p className="text-yellow-400 font-medium">{nominee.club}</p>
+                        <p className="text-yellow-400 font-medium">
+                          {nominee.club}
+                        </p>
                       </div>
                       {isVoted && (
                         <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
@@ -833,7 +874,9 @@ useEffect(() => {
                       <div className="mt-3 pt-3 border-t border-white/10">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-300">{voteCount} votes</span>
-                          <span className="text-white font-medium">{percentage}%</span>
+                          <span className="text-white font-medium">
+                            {percentage}%
+                          </span>
                         </div>
                         <div className="mt-1 bg-white/10 rounded-full h-2">
                           <div
@@ -848,28 +891,28 @@ useEffect(() => {
                               Admin: View voters ({voteCount})
                             </summary>
                             <div className="mt-2 text-xs text-gray-200 space-y-1 max-h-40 overflow-y-auto pr-1">
-                              {(voterNames[`${activeCategory}_${nominee.id}`] || []).map(
-                                (v) => (
-                                  <div
-                                    key={`${v.name}-${v.timestamp}`}
-                                    className="flex items-center justify-between gap-2 bg-white/5 px-2 py-1 rounded"
+                              {(voterNames[`${activeCategory}_${nominee.id}`] ||
+                                []
+                              ).map((v) => (
+                                <div
+                                  key={`${v.name}-${v.timestamp}`}
+                                  className="flex items-center justify-between gap-2 bg-white/5 px-2 py-1 rounded"
+                                >
+                                  <span className="truncate">{v.name}</span>
+                                  <span className="opacity-70">
+                                    {fmtDate(v.timestamp)}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeVote(activeCategory, nominee.id, v.name);
+                                    }}
+                                    className="ml-2 inline-flex items-center gap-1 text-red-300 hover:text-red-200"
                                   >
-                                    <span className="truncate">{v.name}</span>
-                                    <span className="opacity-70">
-                                      {fmtDate(v.timestamp)}
-                                    </span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeVote(activeCategory, nominee.id, v.name);
-                                      }}
-                                      className="ml-2 inline-flex items-center gap-1 text-red-300 hover:text-red-200"
-                                    >
-                                      <Trash2 className="w-3 h-3" /> Remove
-                                    </button>
-                                  </div>
-                                )
-                              )}
+                                    <Trash2 className="w-3 h-3" /> Remove
+                                  </button>
+                                </div>
+                              ))}
                             </div>
                           </details>
                         )}
@@ -884,14 +927,17 @@ useEffect(() => {
       </div>
     </div>
   ) : (
-    // ===== LOGIN VIEW =====
+
+    // -------------------------
+    // LOGIN VIEW
+    // -------------------------
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
         <div className="text-center mb-6">
           <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
           <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
-          <div className="text-sm text-yellow-300 mt-2">
+          <div className="mt-2 text-sm text-yellow-300">
             <Calendar className="w-4 h-4 inline mr-1" />
             {getTimeRemaining()}
             {isAdmin && (
@@ -929,7 +975,6 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Inputs */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-200 mb-2">
@@ -939,16 +984,14 @@ useEffect(() => {
               type="text"
               value={nameInput}
               onChange={(e) => {
-                setNameInput(e.target.value);
-                const matches = findMatchesByName(e.target.value || "");
-                setNeedsClub(matches.length > 1);
+                const v = e.target.value;
+                setNameInput(v);
+                setNeedsClub(findMatchesByName(validManagers, v).length > 1);
               }}
               placeholder="e.g., Jay Jones"
               className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  login(nameInput, clubInput);
-                }
+                if (e.key === "Enter") login(nameInput, clubInput);
               }}
             />
           </div>
@@ -962,17 +1005,15 @@ useEffect(() => {
                 list="clubs-for-name"
                 value={clubInput}
                 onChange={(e) => setClubInput(e.target.value)}
-                placeholder="e.g., Dinamo Zagreb"
+                placeholder="e.g., AS Monaco"
                 className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    login(nameInput, clubInput);
-                  }
+                  if (e.key === "Enter") login(nameInput, clubInput);
                 }}
               />
               <datalist id="clubs-for-name">
-                {findMatchesByName(nameInput || "").map((m) => (
-                  <option key={`${m.name}-${m.club}`} value={m.club} />
+                {findMatchesByName(validManagers, nameInput || "").map((m) => (
+                  <option key={`${m.name}-${m.club}`} value={m.club || "(no club)"} />
                 ))}
               </datalist>
               <p className="text-xs text-gray-300 mt-1">
@@ -996,7 +1037,6 @@ useEffect(() => {
           </button>
         </div>
 
-        {/* Small print */}
         <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
           <div className="flex items-center justify-center gap-1">
             <Lock className="w-3 h-3" />
