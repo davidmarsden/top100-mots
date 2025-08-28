@@ -135,35 +135,93 @@ export default function VotingApp() {
 
   const [validManagers, setValidManagers] = useState(defaultManagers);
 
-  // Fetch managers from Netlify Function (Google Sheet) → clean & dedupe (source of truth)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/managers");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data?.managers) && data.managers.length) {
-          const seen = new Set();
-          const clean = data.managers
-            .map((s) => s?.toString().trim())
-            .filter(Boolean)
-            .filter((name) => {
-              const lower = name.toLowerCase();
-              if (seen.has(lower)) return false;
-              seen.add(lower);
-              return true;
-            });
-          setValidManagers(clean);
-        }
-      } catch {
-        // ignore, keep defaults
+// Fetch managers from Netlify Function (Google Sheet) → clean & dedupe (source of truth)
+useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      const res = await fetch("/api/managers");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (cancelled) return;
+
+      const rows = Array.isArray(data?.managers) ? data.managers : [];
+
+      const truthy = (v) => {
+        if (typeof v === "boolean") return v;
+        if (typeof v === "number") return v === 1;
+        if (typeof v === "string")
+          return ["true", "yes", "1"].includes(v.trim().toLowerCase());
+        return false;
+      };
+
+      const getName = (obj) =>
+        obj?.name ??
+        obj?.Manager ??
+        obj?.manager ??
+        obj?.fullName ??
+        obj?.FullName ??
+        obj?.["Manager Name"] ??
+        obj?.["manager name"] ??
+        obj?.["Name"];
+
+      let list = [];
+
+      if (rows.length && typeof rows[0] === "object") {
+        // Array of objects: respect an "active/Top100/allowed/eligible" style flag
+        list = rows
+          .filter((r) => {
+            const flag =
+              r?.active ??
+              r?.Active ??
+              r?.isActive ??
+              r?.is_top100 ??
+              r?.isTop100 ??
+              r?.Top100 ??
+              r?.top100 ??
+              r?.allowed ??
+              r?.Allowed ??
+              r?.eligible ??
+              r?.Eligible ??
+              r?.enabled ??
+              r?.Enabled ??
+              r?.status ??
+              r?.Status;
+            return truthy(flag);
+          })
+          .map((r) => getName(r))
+          .filter(Boolean);
+      } else if (rows.length && typeof rows[0] === "string") {
+        // Array of strings: assume the function already filtered to valid names
+        list = rows;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [defaultManagers]);
+
+      // Clean & dedupe case-insensitive
+      const seen = new Set();
+      const clean = list
+        .map((s) => s?.toString().trim())
+        .filter(Boolean)
+        .filter((name) => {
+          const lower = name.toLowerCase();
+          if (seen.has(lower)) return false;
+          seen.add(lower);
+          return true;
+        });
+
+      if (clean.length) {
+        setValidManagers(clean);
+      } else {
+        // Fallback to defaults if the sheet yields nothing usable
+        setValidManagers(defaultManagers);
+      }
+    } catch {
+      // ignore, keep defaults
+    }
+  })();
+  return () => {
+    cancelled = true;
+  };
+}, [defaultManagers]);
 
   // Client-side closed flag
   const votingClosed = useMemo(
