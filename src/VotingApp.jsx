@@ -56,26 +56,16 @@ export default function VotingApp() {
   );
 
   // ---------- Valid managers (fallback defaults as objects) ----------
-  // You can add more here if you want offline fallback; primary source is the sheet.
-  const defaultManagers = useMemo(
-    () => [
-      { name: "Scott Mckenzie", club: "São Paulo FC", active: true },
-      { name: "James Mckenzie", club: "Chelsea", active: true },
-      { name: "Heath Brown", club: "", active: true },
-      { name: "André Libras-Boas", club: "Hellas Verona", active: true },
-      { name: "Adam", club: "Barcelona", active: true },
-      { name: "Bojan H", club: "Bayern München", active: true },
-      { name: "David Marsden", club: "Hamburger SV", active: true },
-    ],
-    []
-  );
-
-  const [validManagers, setValidManagers] = useState(defaultManagers);
+ // defaultManagers is your array of strings.
+const [validManagers, setValidManagers] = useState(
+  defaultManagers.map((n) => ({ name: n, club: "" }))
+);
 
 // ---------- Fetch managers from Netlify Function (Google Sheet) ----------
 useEffect(() => {
   let cancelled = false;
 
+  // truthiness for the "Active" column
   const truthy = (v) => {
     if (typeof v === "boolean") return v;
     if (typeof v === "number") return v === 1;
@@ -84,10 +74,50 @@ useEffect(() => {
     return false;
   };
 
-  const lowerKeys = (obj) =>
-    Object.fromEntries(
-      Object.entries(obj || {}).map(([k, v]) => [k.toLowerCase(), v])
-    );
+  const toPairKey = (name, club) =>
+    `${(name || "").trim().toLowerCase()}|${(club || "").trim().toLowerCase()}`;
+
+  const normalizeRows = (rows) => {
+    if (!Array.isArray(rows)) return [];
+
+    const out = [];
+    const seen = new Set();
+
+    for (const row of rows) {
+      let name = "";
+      let club = "";
+      let active = true; // default true if absent
+
+      if (typeof row === "string") {
+        name = row.trim();
+      } else if (Array.isArray(row)) {
+        // Your sheet order: [club, name, active]
+        club = (row[0] ?? "").toString().trim();
+        name = (row[1] ?? "").toString().trim();
+        active = truthy(row[2]);
+      } else if (row && typeof row === "object") {
+        // Accept various casings/keys
+        const r = Object.fromEntries(
+          Object.entries(row).map(([k, v]) => [k.toLowerCase(), v])
+        );
+        name = (r.name ?? r.manager ?? "").toString().trim();
+        club = (r.club ?? "").toString().trim();
+        const a = r.active ?? row.Active ?? row.active;
+        if (a !== undefined) active = truthy(a);
+      }
+
+      if (!name) continue;
+      if (!active) continue;
+
+      const key = toPairKey(name, club);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      out.push({ name, club });
+    }
+
+    return out;
+  };
 
   (async () => {
     try {
@@ -97,31 +127,16 @@ useEffect(() => {
       if (cancelled) return;
 
       const rows = Array.isArray(data?.managers) ? data.managers : [];
-      const seen = new Set();
-      const cleaned = [];
+      const normalized = normalizeRows(rows);
 
-      for (const row of rows) {
-        const r = lowerKeys(row);
-        // Accept "name" or "manager"
-        const nameRaw = (r.name ?? r.manager ?? "").toString().trim();
-        // Accept "club" or "Club"
-        const clubRaw = (r.club ?? "").toString().trim();
-        // Accept "active" or "Active"
-        const activeRaw = r.active ?? row.Active ?? row.active;
-
-        if (!nameRaw) continue;
-        if (!truthy(activeRaw)) continue;
-
-        const key = `${nameRaw.toLowerCase()}|${clubRaw.toLowerCase()}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        cleaned.push({ name: nameRaw, club: clubRaw });
-      }
-
-      setValidManagers(cleaned.length ? cleaned : defaultManagers);
+      // Fallback to defaults (as objects) if nothing valid came back
+      setValidManagers(
+        normalized.length
+          ? normalized
+          : defaultManagers.map((n) => ({ name: n, club: "" }))
+      );
     } catch {
-      setValidManagers(defaultManagers);
+      setValidManagers(defaultManagers.map((n) => ({ name: n, club: "" })));
     }
   })();
 
