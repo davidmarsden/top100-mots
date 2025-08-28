@@ -72,55 +72,63 @@ export default function VotingApp() {
 
   const [validManagers, setValidManagers] = useState(defaultManagers);
 
-  // ---------- Fetch managers from Netlify Function (Google Sheet) ----------
-  // Your sheet headers are exactly: club, name, active (order doesn't matter).
-  useEffect(() => {
-    let cancelled = false;
+// ---------- Fetch managers from Netlify Function (Google Sheet) ----------
+useEffect(() => {
+  let cancelled = false;
 
-    const truthy = (v) => {
-      if (typeof v === "boolean") return v;
-      if (typeof v === "number") return v === 1;
-      if (typeof v === "string")
-        return ["true", "yes", "1"].includes(v.trim().toLowerCase());
-      return false;
-    };
+  const truthy = (v) => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v === 1;
+    if (typeof v === "string")
+      return ["true", "yes", "1", "y"].includes(v.trim().toLowerCase());
+    return false;
+  };
 
-    (async () => {
-      try {
-        const res = await fetch("/api/managers");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled) return;
+  const lowerKeys = (obj) =>
+    Object.fromEntries(
+      Object.entries(obj || {}).map(([k, v]) => [k.toLowerCase(), v])
+    );
 
-        const rows = Array.isArray(data?.managers) ? data.managers : [];
+  (async () => {
+    try {
+      const res = await fetch("/api/managers");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (cancelled) return;
 
-        const list = rows
-          .filter((r) => truthy(r?.active))
-          .map((r) => ({
-            name: (r?.name || "").toString().trim(),
-            club: (r?.club || "").toString().trim(),
-          }))
-          .filter((r) => r.name);
+      const rows = Array.isArray(data?.managers) ? data.managers : [];
+      const seen = new Set();
+      const cleaned = [];
 
-        // Dedupe by (name, club) case-insensitively
-        const seen = new Set();
-        const clean = list.filter((r) => {
-          const key = `${r.name.toLowerCase()}|${(r.club || "").toLowerCase()}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
+      for (const row of rows) {
+        const r = lowerKeys(row);
+        // Accept "name" or "manager"
+        const nameRaw = (r.name ?? r.manager ?? "").toString().trim();
+        // Accept "club" or "Club"
+        const clubRaw = (r.club ?? "").toString().trim();
+        // Accept "active" or "Active"
+        const activeRaw = r.active ?? row.Active ?? row.active;
 
-        setValidManagers(clean.length ? clean : defaultManagers);
-      } catch {
-        setValidManagers(defaultManagers);
+        if (!nameRaw) continue;
+        if (!truthy(activeRaw)) continue;
+
+        const key = `${nameRaw.toLowerCase()}|${clubRaw.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        cleaned.push({ name: nameRaw, club: clubRaw });
       }
-    })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [defaultManagers]);
+      setValidManagers(cleaned.length ? cleaned : defaultManagers);
+    } catch {
+      setValidManagers(defaultManagers);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [defaultManagers]);
 
   // ---------- Login inputs / ambiguity handling ----------
   const [nameInput, setNameInput] = useState("");
