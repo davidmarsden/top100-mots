@@ -497,20 +497,7 @@ export default function VotingApp() {
             achievement: "Top 100 Cup Winner",
             description: "Won the premier knockout competition",
           },
-          {
-            id: "andre_guerra_cup",
-            name: "André Guerra",
-            club: "FC Porto",
-            achievement: "Top 100 Shield Winner",
-            description: "Won the premier shield competition",
-          },
-          {
-            id: "james_mckenzie_cup",
-            name: "James Mckenzie",
-            club: "Chelsea",
-            achievement: "SMFA Super Cup Winner",
-            description: "Prestigious European super cup triumph",
-          },
+
         ],
       },
     }),
