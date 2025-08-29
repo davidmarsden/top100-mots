@@ -383,7 +383,6 @@ useEffect(() => {
             achievement: "Top 100 Cup Winner",
             description: "Won the premier knockout competition",
           },
-          {
         ],
       },
     }),
