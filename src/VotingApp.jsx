@@ -94,6 +94,12 @@ export default function VotingApp() {
   }, [votingDeadline]);
 
   // Hydrate managers from /api/managers (Club, Manager, Active)
+// Auto-show results for everyone once voting has closed
+useEffect(() => {
+  if (new Date() > new Date(votingDeadline)) {
+    setResults(true);
+  }
+}, [votingDeadline]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -242,8 +248,8 @@ export default function VotingApp() {
             description: "Extraordinary turnaround: predicted 17th → title (+16 VA)",
           },
           {
-            id: "greg_bilboatu_d2",
-            name: "⍟Greg Bilboaţu",
+            id: "greg_bilboa_d2",
+            name: "⍟Greg Bilboa",
             club: "Dinamo Zagreb",
             achievement: "3rd place; top statistical performance",
             description: "Predicted 16th → 3rd (+13 VA); narrowly missed auto-promo",
@@ -378,19 +384,6 @@ export default function VotingApp() {
             description: "Won the premier knockout competition",
           },
           {
-            id: "andre_guerra_cup",
-            name: "André Guerra",
-            club: "FC Porto",
-            achievement: "Top 100 Shield Winner",
-            description: "Won the premier shield competition",
-          },
-          {
-            id: "james_mckenzie_cup",
-            name: "James Mckenzie",
-            club: "Chelsea",
-            achievement: "SMFA Super Cup Winner",
-            description: "Prestigious European super cup triumph",
-          },
         ],
       },
     }),
@@ -727,13 +720,21 @@ export default function VotingApp() {
                 {getTimeRemaining()}
               </div>
 
-              <button
-                onClick={() => setResults((s) => !s)}
-                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {results ? "Hide Results" : "Show Results"}
-              </button>
+{/* Results toggle */}
+{!votingClosed ? (
+  <button
+    onClick={() => setResults((s) => !s)}
+    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+  >
+    {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+    {results ? "Hide Results" : "Show Results"}
+  </button>
+) : (
+  <span className="text-sm text-green-300 bg-green-500/10 border border-green-500/20 px-3 py-2 rounded-lg flex items-center gap-2">
+    <Eye className="w-4 h-4" />
+    Voting closed — results visible to all
+  </span>
+)}
 
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
@@ -766,6 +767,62 @@ export default function VotingApp() {
           </div>
         </div>
       </div>
+
+{isAdmin && (
+  <div className="flex items-center gap-2">
+    <button
+      onClick={exportResults}
+      className="bg-green-500/20 hover:bg-green-500/30 text-green-200 px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
+    >
+      <Download className="w-4 h-4" /> Export
+    </button>
+
+    {/* NEW: Reset votes */}
+    <button
+      onClick={async () => {
+        if (!confirm("This will delete ALL recorded votes. Continue?")) return;
+        const token = prompt("Enter admin reset token:");
+        if (!token) return;
+
+        try {
+          const res = await fetch("/api/reset-votes", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Admin-Reset": token,
+            },
+            body: JSON.stringify({ season: selectedSeason }),
+          });
+          const json = await res.json();
+
+          if (!res.ok || !json?.ok) {
+            alert("Reset failed: " + (json?.error || res.statusText));
+            return;
+          }
+
+          // Clear local UI state too
+          setAllVotes({});
+          setVoterNames({});
+          setVotes({});
+          setVotingComplete({});
+          alert("All votes cleared.");
+        } catch (e) {
+          alert("Reset failed. See console.");
+          console.error(e);
+        }
+      }}
+      className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
+      title="Delete ALL votes from the spreadsheet (irreversible)"
+    >
+      <Trash2 className="w-4 h-4" /> Reset All Votes
+    </button>
+
+    <div className="text-xs text-orange-300 flex items-center gap-1">
+      <Shield className="w-3 h-3" />
+      Admin
+    </div>
+  </div>
+)}
 
       {/* Body */}
       <div className="max-w-6xl mx-auto px-4 py-6">
