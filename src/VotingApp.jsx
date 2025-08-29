@@ -18,50 +18,17 @@ import {
 // Small helper
 const fmtDate = (iso) => new Date(iso).toLocaleString();
 
-// --- Admins ---
+// Admins
 const ADMIN_USERS = ["David Marsden", "Regan Thompson"];
 
-// ---- Fallback active managers (name only) ----
-const FALLBACK_ACTIVE_NAMES = [
-  "ANMOL SATAM","Adam","Alessandro Ioli","Alessio Tonato","Andrew Kelly","André Guerra",
-  "Anthony Guardiola","Ash L","Attilio Bonnici","Bharath Raj","Bojan H","Bruno Neto^^",
-  "Carl Martin","Carlos Azevedo","Carlos Miranda","Chris Baggio","Chris East","Chris Meida",
-  "Chris Taylor","Chris Union","D. J.","Dan Wallace","Daniel N.Ferreira","Dario Saviano",
-  "Dave Oz Osborne","David Inglis","David Marsden","Davy Vandendriessche","Doug Earle",
-  "Everton Luiz","Frank Hirst","Fredrik Johansson","Gav Harmer","Gianluca Ghio","Glen Mullan",
-  "Golden Bear","Gregg Robinson","Gursimran Brar","Heath Brown","Hugo Costa","Ignazio Barraco",
-  "James Mckenzie","Jamie Alldridge","Jay Jones","Jerod Ramnarine","Jibriil Mohamed",
-  "Josh McMillan","João Rocha","Luís André Libras-Boas","Marc Ques","Marco G","Marian Moise",
-  "Melvin Udall","Mike Scallotti","Mister TRX","Mohammed Ajmal","Neil Frankland","Noisy Steve",
-  "Nuno Marques","Pane Trifunov","Paolo Everland","Patrik Breznický","Paul Masters","Paul Rimmer",
-  "Paulo Lopes","Pedro Vilar","RJ Alston","Regan Thompson","Ricardo Alexandre","Ricardo Ferreira",
-  "\"Richard \"\"Skippy' Spurr\"","Rob Ryan","Salvatore Zerbo","Saverio Cordiano","Scott Mckenzie",
-  "Shashi P","Sheene Ralspunsky","Sir Stephen Beddows (God)","Steven Allington","Stuart Monteith",
-  "Tharanidharan","The Godfather","The Special Gyan","Vincenzo Martorano","Walter Gogh",
-  "Wayne Bullough","Zé Quim","feargal Hickey","jay jones","kevin mcgregor","paddy d",
-  "rOsS fAlCOn3r","rob cast","simon thomas","yamil Mc02","⍟Greg Bilboaツ","⚽ FM","Landucci",
-  "Murilo","The ⭐⭐strongest⭐⭐"
-];
-
-// Turn fallback names into {club:null,name,active:true} so the UI is consistent
-const FALLBACK_MANAGERS = FALLBACK_ACTIVE_NAMES.map((n) => ({
-  club: null,
-  name: n,
-  active: true,
-}));
-
-// Key used for duplicate-name disambiguation
-const canonicalKey = (name, club) =>
-  `${(name || "").trim().toLowerCase()}|${(club || "").trim().toLowerCase()}`;
-
 export default function VotingApp() {
-  // ---- State ----
-  const [currentManager, setCurrentManager] = useState("");         // canonical display name
-  const [currentClub, setCurrentClub] = useState("");               // optional club
+  // ---------------- State ----------------
+  const [currentManager, setCurrentManager] = useState("");
+  const [currentClub, setCurrentClub] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const [votes, setVotes] = useState({});                           // per-session selection
+  const [votes, setVotes] = useState({});                // per-user (UI)
   const [votingComplete, setVotingComplete] = useState({});
   const [activeCategory, setActiveCategory] = useState("overall");
   const [results, setResults] = useState(false);
@@ -69,65 +36,91 @@ export default function VotingApp() {
   const [verificationError, setVerificationError] = useState("");
   const [selectedSeason] = useState("S25");
 
-  const [votingDeadline, setVotingDeadline] = useState("2025-09-15T23:59:59");
+  const [votingDeadline, setVotingDeadline] = useState(
+    localStorage.getItem("votingDeadline") || "2025-09-15T23:59:59"
+  );
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
 
-  // login form states (handle duplicate names)
+  // Login inputs (with duplicate-name disambiguation by club)
   const [nameInput, setNameInput] = useState("");
   const [clubInput, setClubInput] = useState("");
   const [needsClub, setNeedsClub] = useState(false);
 
-  // In-memory store (client) for visual tallies
-  const [allVotes, setAllVotes] = useState({}); // { "name|club": { overall:'id', ... } }
-  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ {name, timestamp} ] }
+  // aggregate store (in-memory)
+  const [allVotes, setAllVotes] = useState({}); // { "Name|Club": { overall: 'id', ... } }
+  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ { name, timestamp } ] }
 
-  // ---- Managers list (from sheets) ----
-  const [validManagers, setValidManagers] = useState(FALLBACK_MANAGERS);
-
-  // Persist/read deadline locally so admins see their change on refresh
-  useEffect(() => {
-    const saved = localStorage.getItem("votingDeadline");
-    if (saved) setVotingDeadline(saved);
-  }, []);
+  // Persist deadline
   useEffect(() => {
     localStorage.setItem("votingDeadline", votingDeadline);
   }, [votingDeadline]);
 
-  // Hydrate managers from /api/managers (Club, Manager, Active)
-// Auto-show results for everyone once voting has closed
-useEffect(() => {
-  if (new Date() > new Date(votingDeadline)) {
-    setResults(true);
-  }
-}, [votingDeadline]);
+  // ---------------- Managers list ----------------
+  // Fallback active managers (name-only) – used if function not available
+  const fallbackNames = useMemo(
+    () => [
+      "ANMOL SATAM", "Adam", "Alessandro Ioli", "Alessio Tonato", "Andrew Kelly",
+      "André Guerra", "Anthony Guardiola", "Ash L", "Attilio Bonnici", "Bharath Raj",
+      "Bojan H", "Bruno Neto^^", "Carl Martin", "Carlos Azevedo", "Carlos Miranda",
+      "Chris Baggio", "Chris East", "Chris Meida", "Chris Taylor", "Chris Union",
+      "D. J.", "Dan Wallace", "Daniel N.Ferreira", "Dario Saviano", "Dave Oz Osborne",
+      "David Inglis", "David Marsden", "Davy Vandendriessche", "Doug Earle",
+      "Everton Luiz", "Frank Hirst", "Fredrik Johansson", "Gav Harmer", "Gianluca Ghio",
+      "Glen Mullan", "Golden Bear", "Gregg Robinson", "Gursimran Brar", "Heath Brown",
+      "Hugo Costa", "Ignazio Barraco", "James Mckenzie", "Jamie Alldridge", "Jay Jones",
+      "Jerod Ramnarine", "Jibriil Mohamed", "Josh McMillan", "João Rocha",
+      "Luís André Libras-Boas", "Marc Ques", "Marco G", "Marian Moise", "Melvin Udall",
+      "Mike Scallotti", "Mister TRX", "Mohammed Ajmal", "Neil Frankland", "Noisy Steve",
+      "Nuno Marques", "Pane Trifunov", "Paolo Everland", "Patrik Breznický",
+      "Paul Masters", "Paul Rimmer", "Paulo Lopes", "Pedro Vilar", "RJ Alston",
+      "Regan Thompson", "Ricardo Alexandre", "Ricardo Ferreira", `"Richard "Skippy' Spurr"`,
+      "Rob Ryan", "Salvatore Zerbo", "Saverio Cordiano", "Scott Mckenzie", "Shashi P",
+      "Sheene Ralspunsky", "Sir Stephen Beddows (God)", "Steven Allington",
+      "Stuart Monteith", "Tharanidharan", "The Godfather", "The Special Gyan",
+      "Vincenzo Martorano", "Walter Gogh", "Wayne Bullough", "Zé Quim", "feargal Hickey",
+      "jay jones", "kevin mcgregor", "paddy d", "rOsS fAlCOn3r", "rob cast",
+      "simon thomas", "yamil Mc02", "⍟Greg Bilboaツ", "⚽ FM", "Landucci", "Murilo",
+      "The ⭐⭐strongest⭐⭐",
+    ],
+    []
+  );
+
+  // shape: [{name, club, active:true}]
+  const [validManagers, setValidManagers] = useState(
+    fallbackNames.map((n) => ({ name: n, club: "", active: true }))
+  );
+
+  // Fetch managers from Netlify function (Managers sheet: Club | Manager | Active)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/managers");
-        if (!res.ok) throw new Error("bad response");
+        if (!res.ok) return;
         const data = await res.json();
-        const rows = Array.isArray(data?.managers) ? data.managers : [];
+        if (cancelled) return;
 
-        // Normalise, trim, dedupe by name|club, only active:true
+        const rows = Array.isArray(data?.managers) ? data.managers : [];
+        // clean + dedupe by (name|club), only active === true
         const seen = new Set();
         const clean = rows
+          .filter((r) => r && r.name)
           .map((r) => ({
-            club: (r.club ?? "").toString().trim() || null,
-            name: (r.name ?? "").toString().trim(),
-            active: !!r.active,
+            name: String(r.name).trim(),
+            club: String(r.club || "").trim(),
+            active: Boolean(r.active),
           }))
-          .filter((r) => r.name && r.active)
+          .filter((r) => r.active)
           .filter((r) => {
-            const key = canonicalKey(r.name, r.club);
+            const key = (r.name + "|" + r.club).toLowerCase();
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
           });
 
-        if (!cancelled && clean.length) setValidManagers(clean);
-      } catch {
-        // leave fallback
+        if (clean.length) setValidManagers(clean);
+      } catch (_) {
+        // stay on fallback
       }
     })();
     return () => {
@@ -135,30 +128,18 @@ useEffect(() => {
     };
   }, []);
 
-  // Helpers to find managers
-  const findMatchesByName = (name) =>
-    validManagers.filter(
-      (m) => (m.name || "").trim().toLowerCase() === (name || "").trim().toLowerCase()
-    );
-
-  const findCanonicalManager = (name, clubOptional) => {
-    const matches = findMatchesByName(name);
-    if (matches.length === 0) return null;
-    if (matches.length === 1) return matches[0];
-    if (!clubOptional) return "AMBIGUOUS";
-    const byClub = matches.find(
-      (m) => (m.club || "").trim().toLowerCase() === (clubOptional || "").trim().toLowerCase()
-    );
-    return byClub || null;
-  };
-
-  // closed?
+  // ---------------- Derived ----------------
   const votingClosed = useMemo(
     () => new Date() > new Date(votingDeadline),
     [votingDeadline]
   );
 
-  // ---- Categories ----
+  // Auto-show results for everyone after deadline
+  useEffect(() => {
+    if (votingClosed) setResults(true);
+  }, [votingClosed]);
+
+  // ---------------- Categories ----------------
   const categories = useMemo(
     () => ({
       overall: {
@@ -248,8 +229,8 @@ useEffect(() => {
             description: "Extraordinary turnaround: predicted 17th → title (+16 VA)",
           },
           {
-            id: "greg_bilboa_d2",
-            name: "⍟Greg Bilboa",
+            id: "greg_bilboatu_d2",
+            name: "⍟Greg Bilboaţu",
             club: "Dinamo Zagreb",
             achievement: "3rd place; top statistical performance",
             description: "Predicted 16th → 3rd (+13 VA); narrowly missed auto-promo",
@@ -383,13 +364,62 @@ useEffect(() => {
             achievement: "Top 100 Cup Winner",
             description: "Won the premier knockout competition",
           },
+          {
+            id: "andre_guerra_cup",
+            name: "André Guerra",
+            club: "FC Porto",
+            achievement: "Top 100 Shield Winner",
+            description: "Won the premier shield competition",
+          },
+          {
+            id: "james_mckenzie_cup",
+            name: "James Mckenzie",
+            club: "Chelsea",
+            achievement: "SMFA Super Cup Winner",
+            description: "Prestigious European super cup triumph",
+          },
         ],
       },
     }),
     []
   );
 
-  // ---- Login ----
+  // ---------------- Utility for duplicates ----------------
+  const findMatchesByName = (name) =>
+    validManagers.filter(
+      (m) => m.name && m.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+
+  const findCanonicalManager = (name, clubOptional) => {
+    const matches = findMatchesByName(name);
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    if (!clubOptional) return "AMBIGUOUS";
+    const byClub = matches.find(
+      (m) => (m.club || "").trim().toLowerCase() === clubOptional.trim().toLowerCase()
+    );
+    return byClub || null;
+  };
+
+  const keyFor = (name, club) =>
+    `${String(name).trim()}|${String(club || "").trim()}`.toLowerCase();
+
+  // ---------------- Actions / Admin helpers ----------------
+  const handleResetAllVotes = async () => {
+    if (!isAdmin) return;
+    if (!confirm("This will clear ALL votes. Proceed?")) return;
+
+    setAllVotes({});
+    setVoterNames({});
+    setVotes({});
+    setVotingComplete({});
+
+    try {
+      await fetch("/api/reset-votes", { method: "POST" }); // optional function
+    } catch (_) {}
+  };
+
+  // Login / Logout
   const login = (rawName, rawClub) => {
     setVerificationError("");
 
@@ -398,14 +428,6 @@ useEffect(() => {
 
     if (!name) {
       setVerificationError("Please enter a manager name");
-      return;
-    }
-
-    if (votingClosed && !ADMIN_USERS.includes(name)) {
-      const d = new Date(votingDeadline);
-      setVerificationError(
-        `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
-      );
       return;
     }
 
@@ -420,10 +442,21 @@ useEffect(() => {
       return;
     }
 
-    setCurrentManager(match.name); // canonical display
+    const isAdminName = ADMIN_USERS.some(
+      (a) => a.toLowerCase() === match.name.toLowerCase()
+    );
+    if (votingClosed && !isAdminName) {
+      const d = new Date(votingDeadline);
+      setVerificationError(
+        `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
+      );
+      return;
+    }
+
+    setCurrentManager(match.name);
     setCurrentClub(match.club || "");
     setIsLoggedIn(true);
-    setIsAdmin(ADMIN_USERS.includes(match.name));
+    setIsAdmin(isAdminName);
   };
 
   const logout = () => {
@@ -440,47 +473,35 @@ useEffect(() => {
     setNeedsClub(false);
   };
 
-  // ---- Voting (replacement that supports re-vote for everyone) ----
-  const submitVote = (category, nomineeId) => {
-    if (!isLoggedIn || votingClosed) return;
+  // ---------------- Voting ----------------
+  const submitVote = async (category, nomineeId) => {
+    if (!currentManager || votingClosed) return;
 
-    const key = canonicalKey(currentManager, currentClub);
+    const managerKey = keyFor(currentManager, currentClub);
 
-    // 1) remove old placement of this manager for this category (if any)
-    setVoterNames((prev) => {
-      const next = { ...prev };
-      const prevNomineeId = allVotes[key]?.[category];
-      if (prevNomineeId) {
-        const arrKey = `${category}_${prevNomineeId}`;
-        next[arrKey] = (next[arrKey] || []).filter((v) => v.name !== currentManager);
-      }
-      return next;
-    });
-
-    // 2) set new vote locally
+    // local UI update
     setVotes((p) => ({ ...p, [category]: nomineeId }));
     setVotingComplete((p) => ({ ...p, [category]: true }));
 
+    // aggregate
     setAllVotes((prev) => ({
       ...prev,
-      [key]: { ...(prev[key] || {}), [category]: nomineeId },
+      [managerKey]: { ...(prev[managerKey] || {}), [category]: nomineeId },
     }));
-
-    // 3) add to voter list for this nominee
     setVoterNames((prev) => ({
       ...prev,
       [`${category}_${nomineeId}`]: [
         ...(prev[`${category}_${nomineeId}`] || []),
-        { name: currentManager, timestamp: new Date().toISOString() },
+        { name: `${currentManager}${currentClub ? ` (${currentClub})` : ""}`, timestamp: new Date().toISOString() },
       ],
     }));
 
-    // 4) Persist to backend — backend should upsert (one row per manager+category)
+    // persist to backend
     try {
       const nomineeObj = categories[category]?.nominees?.find((n) => n.id === nomineeId);
       const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
 
-      fetch("/api/submit-vote", {
+      await fetch("/api/submit-vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -491,63 +512,39 @@ useEffect(() => {
           nomineeName,
           season: selectedSeason,
         }),
-      }).catch(() => {});
+      });
     } catch (_) {}
   };
 
-  const removeVote = (category, nomineeId, voterName) => {
+  const removeVote = (category, nomineeId, displayName) => {
     if (!isAdmin) return;
 
-    // Remove from visible voter list
     setVoterNames((prev) => ({
       ...prev,
       [`${category}_${nomineeId}`]: (prev[`${category}_${nomineeId}`] || []).filter(
-        (v) => v.name !== voterName
+        (v) => v.name !== displayName
       ),
     }));
 
-    // Remove from aggregate
+    // remove from allVotes too (best-effort — displayName may include club)
     setAllVotes((prev) => {
-      // We don't know club here; delete by any key that matches name for this category
       const next = { ...prev };
-      Object.keys(next).forEach((k) => {
-        const namePart = k.split("|")[0];
-        if (namePart === voterName && next[k]?.[category]) {
-          delete next[k][category];
-          if (Object.keys(next[k]).length === 0) delete next[k];
+      Object.keys(next).forEach((mk) => {
+        if (next[mk]?.[category] === nomineeId) {
+          delete next[mk][category];
+          if (Object.keys(next[mk]).length === 0) delete next[mk];
         }
       });
       return next;
     });
   };
 
-  const exportResults = () => {
-    if (!isAdmin) return;
-    const out = {};
-    Object.keys(categories).forEach((category) => {
-      out[category] = {};
-      categories[category].nominees.forEach((nominee) => {
-        const voteCount = getVoteCount(category, nominee.id);
-        const voters = voterNames[`${category}_${nominee.id}`] || [];
-        out[category][nominee.name] = { votes: voteCount, voters };
-      });
-    });
-
-    const dataStr = JSON.stringify(out, null, 2);
-    const url = URL.createObjectURL(new Blob([dataStr], { type: "application/json" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${selectedSeason}-voting-results.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   const getVoteCount = (category, nomineeId) => {
-    let count = 0;
-    Object.values(allVotes).forEach((managerVotes) => {
-      if (managerVotes[category] === nomineeId) count++;
+    let c = 0;
+    Object.values(allVotes).forEach((mv) => {
+      if (mv[category] === nomineeId) c++;
     });
-    return count;
+    return c;
   };
 
   const getTotalVotes = (category) =>
@@ -558,146 +555,18 @@ useEffect(() => {
     const deadline = new Date(votingDeadline);
     const diff = deadline.getTime() - now.getTime();
     if (diff <= 0) return "Voting Closed";
-
     const MIN = 1000 * 60;
     const HOUR = MIN * 60;
     const DAY = HOUR * 24;
-
     const days = Math.floor(diff / DAY);
     const hours = Math.floor((diff % DAY) / HOUR);
     const minutes = Math.floor((diff % HOUR) / MIN);
-
     return `${days}d ${hours}h ${minutes}m remaining`;
   };
 
-   // ---- UI ----
-  if (!isLoggedIn) {
-    const nameMatches = findMatchesByName(nameInput || "");
-    const multi = nameMatches.length > 1;
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
-          <div className="text-center mb-6">
-            <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
-            <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
-            <div className="text-sm text-yellow-300 mt-2">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              {getTimeRemaining()}
-              {isAdmin && (
-                <span className="ml-3 inline-flex items-center gap-2">
-                  {!isEditingDeadline ? (
-                    <button
-                      onClick={() => setIsEditingDeadline(true)}
-                      className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-                    >
-                      Edit deadline
-                    </button>
-                  ) : (
-                    <>
-                      <input
-                        type="datetime-local"
-                        className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-                        value={new Date(votingDeadline).toISOString().slice(0, 16)}
-                        onChange={(e) => {
-                          const v = e.target.value
-                            ? new Date(e.target.value).toISOString().slice(0, 19)
-                            : "";
-                          if (v) setVotingDeadline(v);
-                        }}
-                      />
-                      <button
-                        onClick={() => setIsEditingDeadline(false)}
-                        className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
-                      >
-                        Done
-                      </button>
-                    </>
-                  )}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-2">
-                Enter Your Manager Name
-              </label>
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setNameInput(v);
-                  const matches = findMatchesByName(v || "");
-                  setNeedsClub(matches.length > 1);
-                  if (matches.length <= 1) setClubInput("");
-                }}
-                placeholder="e.g., Jay Jones"
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") login(nameInput, clubInput);
-                }}
-              />
-            </div>
-
-            {(needsClub || multi) && (
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Select Your Club
-                </label>
-                <input
-                  list="clubs-for-name"
-                  value={clubInput}
-                  onChange={(e) => setClubInput(e.target.value)}
-                  placeholder="e.g., AS Monaco"
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") login(nameInput, clubInput);
-                  }}
-                />
-                <datalist id="clubs-for-name">
-                  {nameMatches.map((m) => (
-                    <option key={`${m.name}-${m.club || "na"}`} value={m.club || ""} />
-                  ))}
-                </datalist>
-                <p className="text-xs text-gray-300 mt-1">
-                  Multiple managers share this name — please pick the correct club.
-                </p>
-              </div>
-            )}
-
-            {verificationError && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
-                {verificationError}
-              </p>
-            )}
-
-            <button
-              onClick={() => login(nameInput, clubInput)}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <User className="w-4 h-4" />
-              Verify & Start Voting
-            </button>
-
-            <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
-              <div className="flex items-center justify-center gap-1">
-                <Lock className="w-3 h-3" />
-                Enter your active Top 100 manager name
-              </div>
-              <div>One vote per verified manager per category</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // logged-in UI
-  return (
+// ---------------- Render ----------------
+  return isLoggedIn ? (
+    // ---------- LOGGED-IN UI ----------
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10">
@@ -713,27 +582,27 @@ useEffect(() => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+
+            <div className="flex items-center gap-3">
               <div className="text-sm text-yellow-300">
                 <Calendar className="w-4 h-4 inline mr-1" />
                 {getTimeRemaining()}
               </div>
 
-{/* Results toggle */}
-{!votingClosed ? (
-  <button
-    onClick={() => setResults((s) => !s)}
-    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-  >
-    {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-    {results ? "Hide Results" : "Show Results"}
-  </button>
-) : (
-  <span className="text-sm text-green-300 bg-green-500/10 border border-green-500/20 px-3 py-2 rounded-lg flex items-center gap-2">
-    <Eye className="w-4 h-4" />
-    Voting closed — results visible to all
-  </span>
-)}
+              {!votingClosed ? (
+                <button
+                  onClick={() => setResults((s) => !s)}
+                  className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {results ? "Hide Results" : "Show Results"}
+                </button>
+              ) : (
+                <span className="text-sm text-green-300 bg-green-500/10 border border-green-500/20 px-3 py-2 rounded-lg flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Voting closed — results visible to all
+                </span>
+              )}
 
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
@@ -741,19 +610,45 @@ useEffect(() => {
               </div>
 
               {isAdmin && (
-                <div className="flex items-center gap-2">
+                <>
                   <button
-                    onClick={exportResults}
+                    onClick={async () => {
+                      // simple JSON export of in-memory tallies
+                      const data = {};
+                      Object.keys(categories).forEach((cat) => {
+                        data[cat] = {};
+                        categories[cat].nominees.forEach((n) => {
+                          const vc = getVoteCount(cat, n.id);
+                          const voters = voterNames[`${cat}_${n.id}`] || [];
+                          data[cat][n.name] = { votes: vc, voters };
+                        });
+                      });
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `${selectedSeason}-voting-results.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
                     className="bg-green-500/20 hover:bg-green-500/30 text-green-200 px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
                   >
                     <Download className="w-4 h-4" />
                     Export
                   </button>
-                  <div className="text-xs text-orange-300 flex items-center gap-1">
+
+                  <button
+                    onClick={handleResetAllVotes}
+                    className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-3 py-2 rounded-lg transition-colors"
+                  >
+                    Reset All Votes
+                  </button>
+
+                  <span className="text-xs text-orange-300 flex items-center gap-1 px-2">
                     <Shield className="w-3 h-3" />
                     Admin
-                  </div>
-                </div>
+                  </span>
+                </>
               )}
 
               <button
@@ -767,65 +662,9 @@ useEffect(() => {
         </div>
       </div>
 
-{isAdmin && (
-  <div className="flex items-center gap-2">
-    <button
-      onClick={exportResults}
-      className="bg-green-500/20 hover:bg-green-500/30 text-green-200 px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
-    >
-      <Download className="w-4 h-4" /> Export
-    </button>
-
-    {/* NEW: Reset votes */}
-    <button
-      onClick={async () => {
-        if (!confirm("This will delete ALL recorded votes. Continue?")) return;
-        const token = prompt("Enter admin reset token:");
-        if (!token) return;
-
-        try {
-          const res = await fetch("/api/reset-votes", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Admin-Reset": token,
-            },
-            body: JSON.stringify({ season: selectedSeason }),
-          });
-          const json = await res.json();
-
-          if (!res.ok || !json?.ok) {
-            alert("Reset failed: " + (json?.error || res.statusText));
-            return;
-          }
-
-          // Clear local UI state too
-          setAllVotes({});
-          setVoterNames({});
-          setVotes({});
-          setVotingComplete({});
-          alert("All votes cleared.");
-        } catch (e) {
-          alert("Reset failed. See console.");
-          console.error(e);
-        }
-      }}
-      className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
-      title="Delete ALL votes from the spreadsheet (irreversible)"
-    >
-      <Trash2 className="w-4 h-4" /> Reset All Votes
-    </button>
-
-    <div className="text-xs text-orange-300 flex items-center gap-1">
-      <Shield className="w-3 h-3" />
-      Admin
-    </div>
-  </div>
-)}
-
       {/* Body */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Category Navigation */}
+        {/* Category Nav */}
         <div className="flex flex-wrap gap-2 mb-6">
           {Object.entries(categories).map(([key, category]) => {
             const Icon = category.icon;
@@ -883,7 +722,9 @@ useEffect(() => {
                       isVoted
                         ? "border-green-400 bg-green-500/20"
                         : "border-white/20 hover:border-white/40"
-                    } ${votingClosed ? "cursor-not-allowed opacity-75" : ""}`}
+                    } ${
+                      votingClosed ? "cursor-not-allowed opacity-75" : ""
+                    }`}
                     onClick={() => !votingClosed && submitVote(activeCategory, nominee.id)}
                   >
                     <div className="flex items-start justify-between mb-3">
@@ -891,7 +732,9 @@ useEffect(() => {
                         <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
                         <p className="text-yellow-400 font-medium">{nominee.club}</p>
                       </div>
-                      {isVoted && <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />}
+                      {isVoted && (
+                        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+                      )}
                     </div>
 
                     <div className="mb-3">
@@ -947,6 +790,128 @@ useEffect(() => {
                 );
               })}
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    // ---------- LOGIN VIEW ----------
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
+      <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
+        <div className="text-center mb-6">
+          <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
+          <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
+
+          <div className="text-sm text-yellow-300 mt-2">
+            <Calendar className="w-4 h-4 inline mr-1" />
+            {getTimeRemaining()}
+            {isAdmin && (
+              <span className="ml-3 inline-flex items-center gap-2">
+                {!isEditingDeadline ? (
+                  <button
+                    onClick={() => setIsEditingDeadline(true)}
+                    className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
+                  >
+                    Edit deadline
+                  </button>
+                ) : (
+                  <>
+                    <input
+                      type="datetime-local"
+                      className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
+                      value={new Date(votingDeadline).toISOString().slice(0, 16)}
+                      onChange={(e) => {
+                        const v = e.target.value
+                          ? new Date(e.target.value).toISOString().slice(0, 19)
+                          : "";
+                        if (v) setVotingDeadline(v);
+                      }}
+                    />
+                    <button
+                      onClick={() => setIsEditingDeadline(false)}
+                      className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
+                    >
+                      Done
+                    </button>
+                  </>
+                )}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-200 mb-2">
+              Enter Your Manager Name
+            </label>
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => {
+                setNameInput(e.target.value);
+                const matches = findMatchesByName(e.target.value || "");
+                setNeedsClub(matches.length > 1);
+              }}
+              placeholder="e.g., Jay Jones"
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  login(nameInput, clubInput);
+                }
+              }}
+            />
+          </div>
+
+          {needsClub && (
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-2">
+                Select Your Club
+              </label>
+              <input
+                list="clubs-for-name"
+                value={clubInput}
+                onChange={(e) => setClubInput(e.target.value)}
+                placeholder="e.g., AS Monaco"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    login(nameInput, clubInput);
+                  }
+                }}
+              />
+              <datalist id="clubs-for-name">
+                {findMatchesByName(nameInput || "").map((m) => (
+                  <option key={`${m.name}-${m.club}`} value={m.club} />
+                ))}
+              </datalist>
+              <p className="text-xs text-gray-300 mt-1">
+                Multiple managers share this name — please pick the correct club.
+              </p>
+            </div>
+          )}
+
+          {verificationError && (
+            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
+              {verificationError}
+            </p>
+          )}
+
+          <button
+            onClick={() => login(nameInput, clubInput)}
+            className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <User className="w-4 h-4" />
+            Verify & Start Voting
+          </button>
+
+          <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
+            <div className="flex items-center justify-center gap-1">
+              <Lock className="w-3 h-3" />
+              Enter your active Top 100 manager name
+            </div>
+            <div>One vote per verified manager per category</div>
           </div>
         </div>
       </div>
