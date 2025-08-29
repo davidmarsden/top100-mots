@@ -15,26 +15,76 @@ import {
   Trash2,
 } from "lucide-react";
 
-// format util
+// Small helper
 const fmtDate = (iso) => new Date(iso).toLocaleString();
 
+// --- Admins ---
+const ADMIN_USERS = ["David Marsden", "Regan Thompson"];
+
+// ---- Fallback active managers (name only) ----
+const FALLBACK_ACTIVE_NAMES = [
+  "ANMOL SATAM","Adam","Alessandro Ioli","Alessio Tonato","Andrew Kelly","André Guerra",
+  "Anthony Guardiola","Ash L","Attilio Bonnici","Bharath Raj","Bojan H","Bruno Neto^^",
+  "Carl Martin","Carlos Azevedo","Carlos Miranda","Chris Baggio","Chris East","Chris Meida",
+  "Chris Taylor","Chris Union","D. J.","Dan Wallace","Daniel N.Ferreira","Dario Saviano",
+  "Dave Oz Osborne","David Inglis","David Marsden","Davy Vandendriessche","Doug Earle",
+  "Everton Luiz","Frank Hirst","Fredrik Johansson","Gav Harmer","Gianluca Ghio","Glen Mullan",
+  "Golden Bear","Gregg Robinson","Gursimran Brar","Heath Brown","Hugo Costa","Ignazio Barraco",
+  "James Mckenzie","Jamie Alldridge","Jay Jones","Jerod Ramnarine","Jibriil Mohamed",
+  "Josh McMillan","João Rocha","Luís André Libras-Boas","Marc Ques","Marco G","Marian Moise",
+  "Melvin Udall","Mike Scallotti","Mister TRX","Mohammed Ajmal","Neil Frankland","Noisy Steve",
+  "Nuno Marques","Pane Trifunov","Paolo Everland","Patrik Breznický","Paul Masters","Paul Rimmer",
+  "Paulo Lopes","Pedro Vilar","RJ Alston","Regan Thompson","Ricardo Alexandre","Ricardo Ferreira",
+  "\"Richard \"\"Skippy' Spurr\"","Rob Ryan","Salvatore Zerbo","Saverio Cordiano","Scott Mckenzie",
+  "Shashi P","Sheene Ralspunsky","Sir Stephen Beddows (God)","Steven Allington","Stuart Monteith",
+  "Tharanidharan","The Godfather","The Special Gyan","Vincenzo Martorano","Walter Gogh",
+  "Wayne Bullough","Zé Quim","feargal Hickey","jay jones","kevin mcgregor","paddy d",
+  "rOsS fAlCOn3r","rob cast","simon thomas","yamil Mc02","⍟Greg Bilboaツ","⚽ FM","Landucci",
+  "Murilo","The ⭐⭐strongest⭐⭐"
+];
+
+// Turn fallback names into {club:null,name,active:true} so the UI is consistent
+const FALLBACK_MANAGERS = FALLBACK_ACTIVE_NAMES.map((n) => ({
+  club: null,
+  name: n,
+  active: true,
+}));
+
+// Key used for duplicate-name disambiguation
+const canonicalKey = (name, club) =>
+  `${(name || "").trim().toLowerCase()}|${(club || "").trim().toLowerCase()}`;
+
 export default function VotingApp() {
-  // ---- state ----
-  const [currentManager, setCurrentManager] = useState("");
-  const [currentClub, setCurrentClub] = useState("");
+  // ---- State ----
+  const [currentManager, setCurrentManager] = useState("");         // canonical display name
+  const [currentClub, setCurrentClub] = useState("");               // optional club
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [votes, setVotes] = useState({});
+
+  const [votes, setVotes] = useState({});                           // per-session selection
   const [votingComplete, setVotingComplete] = useState({});
   const [activeCategory, setActiveCategory] = useState("overall");
   const [results, setResults] = useState(false);
+
   const [verificationError, setVerificationError] = useState("");
   const [selectedSeason] = useState("S25");
 
-  // deadline (editable by admin)
   const [votingDeadline, setVotingDeadline] = useState("2025-09-15T23:59:59");
   const [isEditingDeadline, setIsEditingDeadline] = useState(false);
 
+  // login form states (handle duplicate names)
+  const [nameInput, setNameInput] = useState("");
+  const [clubInput, setClubInput] = useState("");
+  const [needsClub, setNeedsClub] = useState(false);
+
+  // In-memory store (client) for visual tallies
+  const [allVotes, setAllVotes] = useState({}); // { "name|club": { overall:'id', ... } }
+  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ {name, timestamp} ] }
+
+  // ---- Managers list (from sheets) ----
+  const [validManagers, setValidManagers] = useState(FALLBACK_MANAGERS);
+
+  // Persist/read deadline locally so admins see their change on refresh
   useEffect(() => {
     const saved = localStorage.getItem("votingDeadline");
     if (saved) setVotingDeadline(saved);
@@ -43,180 +93,66 @@ export default function VotingApp() {
     localStorage.setItem("votingDeadline", votingDeadline);
   }, [votingDeadline]);
 
-  // login inputs (for disambiguation)
-  const [nameInput, setNameInput] = useState("");
-  const [clubInput, setClubInput] = useState("");
-  const [needsClub, setNeedsClub] = useState(false);
-
-  // in-memory store for demo
-  const [allVotes, setAllVotes] = useState({}); // { "Name|Club": { overall: 'id', ... } }
-  const [voterNames, setVoterNames] = useState({}); // { `${cat}_${id}`: [ { name, timestamp } ] }
-
-  // admins
-  const adminUsers = useMemo(() => ["David Marsden", "Regan Thompson"], []);
-
-  // fallback active managers (name only)
-  const fallbackNames = useMemo(
-    () => [
-      "ANMOL SATAM",
-      "Adam",
-      "Alessandro Ioli",
-      "Alessio Tonato",
-      "Andrew Kelly",
-      "André Guerra",
-      "Anthony Guardiola",
-      "Ash L",
-      "Attilio Bonnici",
-      "Bharath Raj",
-      "Bojan H",
-      "Bruno Neto^^",
-      "Carl Martin",
-      "Carlos Azevedo",
-      "Carlos Miranda",
-      "Chris Baggio",
-      "Chris East",
-      "Chris Meida",
-      "Chris Taylor",
-      "Chris Union",
-      "D. J.",
-      "Dan Wallace",
-      "Daniel N.Ferreira",
-      "Dario Saviano",
-      "Dave Oz Osborne",
-      "David Inglis",
-      "David Marsden",
-      "Davy Vandendriessche",
-      "Doug Earle",
-      "Everton Luiz",
-      "Frank Hirst",
-      "Fredrik Johansson",
-      "Gav Harmer",
-      "Gianluca Ghio",
-      "Glen Mullan",
-      "Golden Bear",
-      "Gregg Robinson",
-      "Gursimran Brar",
-      "Heath Brown",
-      "Hugo Costa",
-      "Ignazio Barraco",
-      "James Mckenzie",
-      "Jamie Alldridge",
-      "Jay Jones",
-      "Jerod Ramnarine",
-      "Jibriil Mohamed",
-      "Josh McMillan",
-      "João Rocha",
-      "Luís André Libras-Boas",
-      "Marc Ques",
-      "Marco G",
-      "Marian Moise",
-      "Melvin Udall",
-      "Mike Scallotti",
-      "Mister TRX",
-      "Mohammed Ajmal",
-      "Neil Frankland",
-      "Noisy Steve",
-      "Nuno Marques",
-      "Pane Trifunov",
-      "Paolo Everland",
-      "Patrik Breznický",
-      "Paul Masters",
-      "Paul Rimmer",
-      "Paulo Lopes",
-      "Pedro Vilar",
-      "RJ Alston",
-      "Regan Thompson",
-      "Ricardo Alexandre",
-      "Ricardo Ferreira",
-      `"Richard "Skippy' Spurr"`,
-      "Rob Ryan",
-      "Salvatore Zerbo",
-      "Saverio Cordiano",
-      "Scott Mckenzie",
-      "Shashi P",
-      "Sheene Ralspunsky",
-      "Sir Stephen Beddows (God)",
-      "Steven Allington",
-      "Stuart Monteith",
-      "Tharanidharan",
-      "The Godfather",
-      "The Special Gyan",
-      "Vincenzo Martorano",
-      "Walter Gogh",
-      "Wayne Bullough",
-      "Zé Quim",
-      "feargal Hickey",
-      "jay jones",
-      "kevin mcgregor",
-      "paddy d",
-      "rOsS fAlCOn3r",
-      "rob cast",
-      "simon thomas",
-      "yamil Mc02",
-      "⍟Greg Bilboaツ",
-      "⚽ FM",
-      "Landucci",
-      "Murilo",
-      "The ⭐⭐strongest⭐⭐",
-    ],
-    []
-  );
-
-  // defaultManagers as {name, club?, active:true}
-  const defaultManagers = useMemo(
-    () =>
-      fallbackNames.map((n) => ({
-        name: n,
-        club: "",
-        active: true,
-      })),
-    [fallbackNames]
-  );
-
-  const [validManagers, setValidManagers] = useState(defaultManagers);
-
-  // Load managers from Netlify function (active only, with clubs)
+  // Hydrate managers from /api/managers (Club, Manager, Active)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/managers");
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("bad response");
         const data = await res.json();
-        if (!cancelled && Array.isArray(data?.managers) && data.managers.length) {
-          // clean/dedupe case-insensitively by name|club
-          const seen = new Set();
-          const clean = data.managers
-            .map((m) => ({
-              name: (m?.name || "").toString().trim(),
-              club: (m?.club || "").toString().trim(),
-              active: !!m?.active,
-            }))
-            .filter((m) => m.name && m.active)
-            .filter((m) => {
-              const k = `${m.name.toLowerCase()}|${m.club.toLowerCase()}`;
-              if (seen.has(k)) return false;
-              seen.add(k);
-              return true;
-            });
-          setValidManagers(clean);
-        }
-      } catch (_) {
-        // keep defaults
+        const rows = Array.isArray(data?.managers) ? data.managers : [];
+
+        // Normalise, trim, dedupe by name|club, only active:true
+        const seen = new Set();
+        const clean = rows
+          .map((r) => ({
+            club: (r.club ?? "").toString().trim() || null,
+            name: (r.name ?? "").toString().trim(),
+            active: !!r.active,
+          }))
+          .filter((r) => r.name && r.active)
+          .filter((r) => {
+            const key = canonicalKey(r.name, r.club);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+
+        if (!cancelled && clean.length) setValidManagers(clean);
+      } catch {
+        // leave fallback
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [defaultManagers]);
+  }, []);
 
-  // closed flag (client-side)
+  // Helpers to find managers
+  const findMatchesByName = (name) =>
+    validManagers.filter(
+      (m) => (m.name || "").trim().toLowerCase() === (name || "").trim().toLowerCase()
+    );
+
+  const findCanonicalManager = (name, clubOptional) => {
+    const matches = findMatchesByName(name);
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    if (!clubOptional) return "AMBIGUOUS";
+    const byClub = matches.find(
+      (m) => (m.club || "").trim().toLowerCase() === (clubOptional || "").trim().toLowerCase()
+    );
+    return byClub || null;
+  };
+
+  // closed?
   const votingClosed = useMemo(
     () => new Date() > new Date(votingDeadline),
     [votingDeadline]
   );
 
-  // categories
+  // ---- Categories ----
   const categories = useMemo(
     () => ({
       overall: {
@@ -227,16 +163,14 @@ export default function VotingApp() {
             id: "andre_libras",
             name: "André Libras-Boas",
             club: "Hellas Verona",
-            achievement:
-              "Treble Winner (D1 + SMFA Champions Cup + Charity Shield)",
+            achievement: "Treble Winner (D1 + SMFA Champions Cup + Charity Shield)",
             description: "Only manager to win multiple major trophies in S25",
           },
           {
             id: "david_marsden",
             name: "David Marsden",
             club: "Hamburger SV",
-            achievement:
-              "Greatest Transformation (+16 VA - Highest in all divisions)",
+            achievement: "Greatest Transformation (+16 VA - Highest in all divisions)",
             description: "D2 Champion: 17th prediction → Champions",
           },
           {
@@ -271,16 +205,14 @@ export default function VotingApp() {
             name: "André Libras-Boas",
             club: "Hellas Verona",
             achievement: "D1 Champion + SMFA Champions Cup + Charity Shield",
-            description:
-              "Successfully defended title, only multiple trophy winner",
+            description: "Successfully defended title, only multiple trophy winner",
           },
           {
             id: "scott_mckenzie_d1",
             name: "Scott Mckenzie",
             club: "São Paulo FC",
             achievement: "Top Statistical Performer (+11 VA, +3 PVA)",
-            description:
-              "Predicted 15th → finished 4th, incredible transformation",
+            description: "Predicted 15th → finished 4th, incredible transformation",
           },
           {
             id: "adam_d1",
@@ -307,16 +239,14 @@ export default function VotingApp() {
             name: "David Marsden",
             club: "Hamburger SV",
             achievement: "Division 2 Champion",
-            description:
-              "Extraordinary turnaround: predicted 17th → title (+16 VA)",
+            description: "Extraordinary turnaround: predicted 17th → title (+16 VA)",
           },
           {
             id: "greg_bilboatu_d2",
             name: "⍟Greg Bilboaţu",
             club: "Dinamo Zagreb",
             achievement: "3rd place; top statistical performance",
-            description:
-              "Predicted 16th → 3rd (+13 VA); narrowly missed auto-promo",
+            description: "Predicted 16th → 3rd (+13 VA); narrowly missed auto-promo",
           },
           {
             id: "dave_oz_d2",
@@ -343,16 +273,14 @@ export default function VotingApp() {
             name: "Mike Scallotti",
             club: "Everton",
             achievement: "Play-off Winner (promotion secured)",
-            description:
-              "Comeback from bottom into promotion—underdog story",
+            description: "Comeback from bottom into promotion—underdog story",
           },
           {
             id: "jamie_rune_d3",
             name: "Jamie ᚺ",
             club: "FC Augsburg",
             achievement: "3rd place; exceptional stats",
-            description:
-              "Pred 13th → 3rd (+10 VA); outstanding tactical management",
+            description: "Pred 13th → 3rd (+10 VA); outstanding tactical management",
           },
         ],
       },
@@ -365,8 +293,7 @@ export default function VotingApp() {
             name: "Stuart Monteith",
             club: "Montpellier HSC",
             achievement: "2nd place + Automatic Promotion",
-            description:
-              "Pred 14th → 2nd; huge overperformance to auto-promo",
+            description: "Pred 14th → 2nd; huge overperformance to auto-promo",
           },
           {
             id: "chris_union_d4",
@@ -387,8 +314,7 @@ export default function VotingApp() {
             name: "ruts66",
             club: "Feyenoord",
             achievement: "Top statistical performer",
-            description:
-              "Pred 17th → top VA (+13) despite playoff exit",
+            description: "Pred 17th → top VA (+13) despite playoff exit",
           },
         ],
       },
@@ -401,32 +327,28 @@ export default function VotingApp() {
             name: "Marc Ques",
             club: "FK Partizan",
             achievement: "Division 5 Champion",
-            description:
-              "Pred 9th → clear title (+8 VA) and best stats",
+            description: "Pred 9th → clear title (+8 VA) and best stats",
           },
           {
             id: "bruno_neto_d5",
             name: "Bruno Neto^^",
             club: "Olympique Lyonnais",
             achievement: "Runner-up; exceptional stats",
-            description:
-              "Pred 15th → 2nd (+13 VA); narrow miss for title",
+            description: "Pred 15th → 2nd (+13 VA); narrow miss for title",
           },
           {
             id: "marian_moise_d5",
             name: "Marian Moise",
             club: "Newcastle United",
             achievement: "Play-off Winner (promotion secured)",
-            description:
-              "Pred 11th → promoted via playoffs (+6 VA)",
+            description: "Pred 11th → promoted via playoffs (+6 VA)",
           },
           {
             id: "wayne_bullough_d5",
             name: "Wayne Bullough",
             club: "Athletic Club",
             achievement: "Highest individual overperformance",
-            description:
-              "Pred 20th → massive +14 VA; long-term build paying off",
+            description: "Pred 20th → massive +14 VA; long-term build paying off",
           },
         ],
       },
@@ -439,16 +361,14 @@ export default function VotingApp() {
             name: "André Libras-Boas",
             club: "Hellas Verona",
             achievement: "SMFA Champions Cup Winner",
-            description:
-              "Won elite European competition alongside league success",
+            description: "Won elite European competition alongside league success",
           },
           {
             id: "adam_cups",
             name: "Adam",
             club: "Barcelona",
             achievement: "World Club Cup + Youth Cup Winner",
-            description:
-              "Double cup success across senior and youth competitions",
+            description: "Double cup success across senior and youth competitions",
           },
           {
             id: "simon_thomas_cup",
@@ -477,127 +397,315 @@ export default function VotingApp() {
     []
   );
 
-  // helpers for login
-  const findMatchesByName = (name) =>
-    validManagers.filter(
-      (m) =>
-        (m.name || "").trim().toLowerCase() ===
-        (name || "").trim().toLowerCase()
-    );
+  // ---- Login ----
+  const login = (rawName, rawClub) => {
+    setVerificationError("");
 
-  const findCanonicalManager = (name, clubOptional) => {
-    const matches = findMatchesByName(name);
-    if (matches.length === 0) return null;
-    if (matches.length === 1) return matches[0];
-    if (!clubOptional) return "AMBIGUOUS";
-    const byClub = matches.find(
-      (m) =>
-        (m.club || "").trim().toLowerCase() ===
-        (clubOptional || "").trim().toLowerCase()
-    );
-    return byClub || null;
+    const name = (rawName || "").trim();
+    const club = (rawClub || "").trim();
+
+    if (!name) {
+      setVerificationError("Please enter a manager name");
+      return;
+    }
+
+    if (votingClosed && !ADMIN_USERS.includes(name)) {
+      const d = new Date(votingDeadline);
+      setVerificationError(
+        `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
+      );
+      return;
+    }
+
+    const match = findCanonicalManager(name, club || undefined);
+    if (match === "AMBIGUOUS") {
+      setNeedsClub(true);
+      setVerificationError("Multiple managers share this name — please pick the correct club.");
+      return;
+    }
+    if (!match) {
+      setVerificationError(`"${name}" is not found in the active Top 100 manager database.`);
+      return;
+    }
+
+    setCurrentManager(match.name); // canonical display
+    setCurrentClub(match.club || "");
+    setIsLoggedIn(true);
+    setIsAdmin(ADMIN_USERS.includes(match.name));
   };
 
-  // login
- const login = (rawName, rawClub) => {
-  const name = (rawName || "").trim();
-  const club = (rawClub || "").trim();
-  setVerificationError("");
+  const logout = () => {
+    setIsLoggedIn(false);
+    setCurrentManager("");
+    setCurrentClub("");
+    setIsAdmin(false);
+    setVotes({});
+    setVotingComplete({});
+    setResults(false);
+    setVerificationError("");
+    setNameInput("");
+    setClubInput("");
+    setNeedsClub(false);
+  };
 
-  if (!name) {
-    setVerificationError("Please enter a manager name");
-    return;
-  }
+  // ---- Voting (replacement that supports re-vote for everyone) ----
+  const submitVote = (category, nomineeId) => {
+    if (!isLoggedIn || votingClosed) return;
 
-  // Closed? only admins may vote after deadline
-  if (votingClosed && !adminUsers.includes(name)) {
-    const d = new Date(votingDeadline);
-    setVerificationError(`Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`);
-    return;
-  }
+    const key = canonicalKey(currentManager, currentClub);
 
-  // Find canonical manager
-  const matches = validManagers.filter(
-    m => m.name?.trim().toLowerCase() === name.toLowerCase()
-  );
-
-  if (matches.length === 0) {
-    setVerificationError(`"${name}" is not found in the active Top 100 manager database.`);
-    return;
-  }
-  if (matches.length > 1 && !club) {
-    setVerificationError(`Multiple managers called "${name}" — please select your club.`);
-    return;
-  }
-  const canonical = matches.length === 1
-    ? matches[0]
-    : matches.find(m => (m.club || "").trim().toLowerCase() === club.toLowerCase());
-
-  if (!canonical) {
-    setVerificationError(`"${name}" with club "${club}" not found in the active Top 100 manager database.`);
-    return;
-  }
-
-  setCurrentManager(canonical.name);
-  setIsLoggedIn(true);
-  setIsAdmin(adminUsers.includes(canonical.name));
-};
-
-  // submit vote
-  const submitVote = async (category, nomineeId) => {
-  if (!isLoggedIn || votingClosed || !currentManager) return;
-
-  const managerName = currentManager;
-
-  // If the manager had a previous vote in this category, remove them from that nominee's list
-  setVoterNames(prev => {
-    const draft = { ...prev };
-    const prevNominee = allVotes[managerName]?.[category];
-    if (prevNominee && prevNominee !== nomineeId) {
-      const key = `${category}_${prevNominee}`;
-      draft[key] = (draft[key] || []).filter(v => v.name !== managerName);
-    }
-    // add to new nominee list
-    const newKey = `${category}_${nomineeId}`;
-    draft[newKey] = [
-      ...(draft[newKey] || []).filter(v => v.name !== managerName),
-      { name: managerName, timestamp: new Date().toISOString() },
-    ];
-    return draft;
-  });
-
-  // Update aggregate store
-  setAllVotes(prev => ({
-    ...prev,
-    [managerName]: { ...(prev[managerName] || {}), [category]: nomineeId },
-  }));
-
-  // Personal UI
-  setVotes(prev => ({ ...prev, [category]: nomineeId }));
-  setVotingComplete(prev => ({ ...prev, [category]: true }));
-
-  // Persist (now performs UPSERT on the sheet)
-  try {
-    const nomineeObj = categories[category]?.nominees?.find(n => n.id === nomineeId);
-    const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
-
-    await fetch("/api/submit-vote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        season: selectedSeason,
-        manager: managerName,
-        category,
-        nomineeId,
-        nomineeName,
-      }),
+    // 1) remove old placement of this manager for this category (if any)
+    setVoterNames((prev) => {
+      const next = { ...prev };
+      const prevNomineeId = allVotes[key]?.[category];
+      if (prevNomineeId) {
+        const arrKey = `${category}_${prevNomineeId}`;
+        next[arrKey] = (next[arrKey] || []).filter((v) => v.name !== currentManager);
+      }
+      return next;
     });
-  } catch (_) {
-    // ignore network errors in UI
+
+    // 2) set new vote locally
+    setVotes((p) => ({ ...p, [category]: nomineeId }));
+    setVotingComplete((p) => ({ ...p, [category]: true }));
+
+    setAllVotes((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), [category]: nomineeId },
+    }));
+
+    // 3) add to voter list for this nominee
+    setVoterNames((prev) => ({
+      ...prev,
+      [`${category}_${nomineeId}`]: [
+        ...(prev[`${category}_${nomineeId}`] || []),
+        { name: currentManager, timestamp: new Date().toISOString() },
+      ],
+    }));
+
+    // 4) Persist to backend — backend should upsert (one row per manager+category)
+    try {
+      const nomineeObj = categories[category]?.nominees?.find((n) => n.id === nomineeId);
+      const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
+
+      fetch("/api/submit-vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          manager: currentManager,
+          club: currentClub || "",
+          category,
+          nomineeId,
+          nomineeName,
+          season: selectedSeason,
+        }),
+      }).catch(() => {});
+    } catch (_) {}
+  };
+
+  const removeVote = (category, nomineeId, voterName) => {
+    if (!isAdmin) return;
+
+    // Remove from visible voter list
+    setVoterNames((prev) => ({
+      ...prev,
+      [`${category}_${nomineeId}`]: (prev[`${category}_${nomineeId}`] || []).filter(
+        (v) => v.name !== voterName
+      ),
+    }));
+
+    // Remove from aggregate
+    setAllVotes((prev) => {
+      // We don't know club here; delete by any key that matches name for this category
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => {
+        const namePart = k.split("|")[0];
+        if (namePart === voterName && next[k]?.[category]) {
+          delete next[k][category];
+          if (Object.keys(next[k]).length === 0) delete next[k];
+        }
+      });
+      return next;
+    });
+  };
+
+  const exportResults = () => {
+    if (!isAdmin) return;
+    const out = {};
+    Object.keys(categories).forEach((category) => {
+      out[category] = {};
+      categories[category].nominees.forEach((nominee) => {
+        const voteCount = getVoteCount(category, nominee.id);
+        const voters = voterNames[`${category}_${nominee.id}`] || [];
+        out[category][nominee.name] = { votes: voteCount, voters };
+      });
+    });
+
+    const dataStr = JSON.stringify(out, null, 2);
+    const url = URL.createObjectURL(new Blob([dataStr], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedSeason}-voting-results.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getVoteCount = (category, nomineeId) => {
+    let count = 0;
+    Object.values(allVotes).forEach((managerVotes) => {
+      if (managerVotes[category] === nomineeId) count++;
+    });
+    return count;
+  };
+
+  const getTotalVotes = (category) =>
+    Object.values(allVotes).filter((mv) => mv[category]).length;
+
+  const getTimeRemaining = () => {
+    const now = new Date();
+    const deadline = new Date(votingDeadline);
+    const diff = deadline.getTime() - now.getTime();
+    if (diff <= 0) return "Voting Closed";
+
+    const MIN = 1000 * 60;
+    const HOUR = MIN * 60;
+    const DAY = HOUR * 24;
+
+    const days = Math.floor(diff / DAY);
+    const hours = Math.floor((diff % DAY) / HOUR);
+    const minutes = Math.floor((diff % HOUR) / MIN);
+
+    return `${days}d ${hours}h ${minutes}m remaining`;
+  };
+
+   // ---- UI ----
+  if (!isLoggedIn) {
+    const nameMatches = findMatchesByName(nameInput || "");
+    const multi = nameMatches.length > 1;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
+          <div className="text-center mb-6">
+            <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
+            <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
+            <div className="text-sm text-yellow-300 mt-2">
+              <Calendar className="w-4 h-4 inline mr-1" />
+              {getTimeRemaining()}
+              {isAdmin && (
+                <span className="ml-3 inline-flex items-center gap-2">
+                  {!isEditingDeadline ? (
+                    <button
+                      onClick={() => setIsEditingDeadline(true)}
+                      className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
+                    >
+                      Edit deadline
+                    </button>
+                  ) : (
+                    <>
+                      <input
+                        type="datetime-local"
+                        className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
+                        value={new Date(votingDeadline).toISOString().slice(0, 16)}
+                        onChange={(e) => {
+                          const v = e.target.value
+                            ? new Date(e.target.value).toISOString().slice(0, 19)
+                            : "";
+                          if (v) setVotingDeadline(v);
+                        }}
+                      />
+                      <button
+                        onClick={() => setIsEditingDeadline(false)}
+                        className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
+                      >
+                        Done
+                      </button>
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-2">
+                Enter Your Manager Name
+              </label>
+              <input
+                type="text"
+                value={nameInput}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setNameInput(v);
+                  const matches = findMatchesByName(v || "");
+                  setNeedsClub(matches.length > 1);
+                  if (matches.length <= 1) setClubInput("");
+                }}
+                placeholder="e.g., Jay Jones"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") login(nameInput, clubInput);
+                }}
+              />
+            </div>
+
+            {(needsClub || multi) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-2">
+                  Select Your Club
+                </label>
+                <input
+                  list="clubs-for-name"
+                  value={clubInput}
+                  onChange={(e) => setClubInput(e.target.value)}
+                  placeholder="e.g., AS Monaco"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") login(nameInput, clubInput);
+                  }}
+                />
+                <datalist id="clubs-for-name">
+                  {nameMatches.map((m) => (
+                    <option key={`${m.name}-${m.club || "na"}`} value={m.club || ""} />
+                  ))}
+                </datalist>
+                <p className="text-xs text-gray-300 mt-1">
+                  Multiple managers share this name — please pick the correct club.
+                </p>
+              </div>
+            )}
+
+            {verificationError && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
+                {verificationError}
+              </p>
+            )}
+
+            <button
+              onClick={() => login(nameInput, clubInput)}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <User className="w-4 h-4" />
+              Verify & Start Voting
+            </button>
+
+            <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
+              <div className="flex items-center justify-center gap-1">
+                <Lock className="w-3 h-3" />
+                Enter your active Top 100 manager name
+              </div>
+              <div>One vote per verified manager per category</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
-};
-  // ---- UI ----
-  return isLoggedIn ? (
+
+  // logged-in UI
+  return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
       {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10">
@@ -606,9 +714,7 @@ export default function VotingApp() {
             <div className="flex items-center gap-3">
               <Trophy className="w-8 h-8 text-yellow-400" />
               <div>
-                <h1 className="text-xl font-bold text-white">
-                  Season 25 Manager Awards
-                </h1>
+                <h1 className="text-xl font-bold text-white">Season 25 Manager Awards</h1>
                 <p className="text-sm text-gray-300">
                   Voting as: {currentManager}
                   {currentClub ? ` (${currentClub})` : ""}
@@ -619,43 +725,8 @@ export default function VotingApp() {
               <div className="text-sm text-yellow-300">
                 <Calendar className="w-4 h-4 inline mr-1" />
                 {getTimeRemaining()}
-                {isAdmin && (
-                  <span className="ml-3 inline-flex items-center gap-2">
-                    {!isEditingDeadline ? (
-                      <button
-                        onClick={() => setIsEditingDeadline(true)}
-                        className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-                      >
-                        Edit deadline
-                      </button>
-                    ) : (
-                      <>
-                        <input
-                          type="datetime-local"
-                          className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-                          value={new Date(votingDeadline)
-                            .toISOString()
-                            .slice(0, 16)}
-                          onChange={(e) => {
-                            const v = e.target.value
-                              ? new Date(e.target.value)
-                                  .toISOString()
-                                  .slice(0, 19)
-                              : "";
-                            if (v) setVotingDeadline(v);
-                          }}
-                        />
-                        <button
-                          onClick={() => setIsEditingDeadline(false)}
-                          className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
-                        >
-                          Done
-                        </button>
-                      </>
-                    )}
-                  </span>
-                )}
               </div>
+
               <button
                 onClick={() => setResults((s) => !s)}
                 className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -663,10 +734,12 @@ export default function VotingApp() {
                 {results ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 {results ? "Hide Results" : "Show Results"}
               </button>
+
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
                 {Object.keys(allVotes).length} managers voted
               </div>
+
               {isAdmin && (
                 <div className="flex items-center gap-2">
                   <button
@@ -682,6 +755,7 @@ export default function VotingApp() {
                   </div>
                 </div>
               )}
+
               <button
                 onClick={logout}
                 className="bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg transition-colors"
@@ -753,25 +827,15 @@ export default function VotingApp() {
                       isVoted
                         ? "border-green-400 bg-green-500/20"
                         : "border-white/20 hover:border-white/40"
-                    } ${
-                      votingComplete[activeCategory] || votingClosed
-                        ? "cursor-not-allowed opacity-75"
-                        : ""
-                    }`}
-                    onClick={() =>
-                      !votingComplete[activeCategory] &&
-                      !votingClosed &&
-                      submitVote(activeCategory, nominee.id)
-                    }
+                    } ${votingClosed ? "cursor-not-allowed opacity-75" : ""}`}
+                    onClick={() => !votingClosed && submitVote(activeCategory, nominee.id)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
                         <p className="text-yellow-400 font-medium">{nominee.club}</p>
                       </div>
-                      {isVoted && (
-                        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                      )}
+                      {isVoted && <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />}
                     </div>
 
                     <div className="mb-3">
@@ -800,26 +864,24 @@ export default function VotingApp() {
                               Admin: View voters ({voteCount})
                             </summary>
                             <div className="mt-2 text-xs text-gray-200 space-y-1 max-h-40 overflow-y-auto pr-1">
-                              {(voterNames[`${activeCategory}_${nominee.id}`] || []).map(
-                                (v) => (
-                                  <div
-                                    key={`${v.name}-${v.timestamp}`}
-                                    className="flex items-center justify-between gap-2 bg-white/5 px-2 py-1 rounded"
+                              {(voterNames[`${activeCategory}_${nominee.id}`] || []).map((v) => (
+                                <div
+                                  key={`${v.name}-${v.timestamp}`}
+                                  className="flex items-center justify-between gap-2 bg-white/5 px-2 py-1 rounded"
+                                >
+                                  <span className="truncate">{v.name}</span>
+                                  <span className="opacity-70">{fmtDate(v.timestamp)}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeVote(activeCategory, nominee.id, v.name);
+                                    }}
+                                    className="ml-2 inline-flex items-center gap-1 text-red-300 hover:text-red-200"
                                   >
-                                    <span className="truncate">{v.name}</span>
-                                    <span className="opacity-70">{fmtDate(v.timestamp)}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeVote(activeCategory, nominee.id, v.name);
-                                      }}
-                                      className="ml-2 inline-flex items-center gap-1 text-red-300 hover:text-red-200"
-                                    >
-                                      <Trash2 className="w-3 h-3" /> Remove
-                                    </button>
-                                  </div>
-                                )
-                              )}
+                                    <Trash2 className="w-3 h-3" /> Remove
+                                  </button>
+                                </div>
+                              ))}
                             </div>
                           </details>
                         )}
@@ -830,119 +892,6 @@ export default function VotingApp() {
               })}
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  ) : (
-    // LOGIN VIEW
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
-      <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
-        <div className="text-center mb-6">
-          <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
-          <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
-          <div className="text-sm text-yellow-300">
-            <Calendar className="w-4 h-4 inline mr-1" />
-            {getTimeRemaining()}
-            {isAdmin && (
-              <span className="ml-3 inline-flex items-center gap-2">
-                {!isEditingDeadline ? (
-                  <button
-                    onClick={() => setIsEditingDeadline(true)}
-                    className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-                  >
-                    Edit deadline
-                  </button>
-                ) : (
-                  <>
-                    <input
-                      type="datetime-local"
-                      className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-                      value={new Date(votingDeadline).toISOString().slice(0, 16)}
-                      onChange={(e) => {
-                        const v = e.target.value
-                          ? new Date(e.target.value).toISOString().slice(0, 19)
-                          : "";
-                        if (v) setVotingDeadline(v);
-                      }}
-                    />
-                    <button
-                      onClick={() => setIsEditingDeadline(false)}
-                      className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
-                    >
-                      Done
-                    </button>
-                  </>
-                )}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Enter Your Manager Name
-            </label>
-            <input
-              type="text"
-              value={nameInput}
-              onChange={(e) => {
-                const v = e.target.value;
-                setNameInput(v);
-                setNeedsClub(findMatchesByName(v || "").length > 1);
-              }}
-              placeholder="e.g., Jay Jones"
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              onKeyDown={(e) => e.key === "Enter" && login(nameInput, clubInput)}
-            />
-          </div>
-
-          {needsClub && (
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-2">
-                Select Your Club
-              </label>
-              <input
-                list="clubs-for-name"
-                value={clubInput}
-                onChange={(e) => setClubInput(e.target.value)}
-                placeholder="e.g., AS Monaco"
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                onKeyDown={(e) => e.key === "Enter" && login(nameInput, clubInput)}
-              />
-              <datalist id="clubs-for-name">
-                {findMatchesByName(nameInput || "").map((m) => (
-                  <option key={`${m.name}-${m.club}`} value={m.club} />
-                ))}
-              </datalist>
-              <p className="text-xs text-gray-300 mt-1">
-                Multiple managers share this name — please pick the correct club.
-              </p>
-            </div>
-          )}
-
-          {verificationError && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
-              {verificationError}
-            </p>
-          )}
-
-          <button
-            onClick={() => login(nameInput, clubInput)}
-            className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            <User className="w-4 h-4" />
-            Verify & Start Voting
-          </button>
-        </div>
-
-        <div className="mt-6 text-xs text-gray-300 text-center space-y-1">
-          <div className="flex items-center justify-center gap-1">
-            <Lock className="w-3 h-3" />
-            Enter your Top 100 manager name
-          </div>
-          <div>One vote per verified manager per category</div>
         </div>
       </div>
     </div>
