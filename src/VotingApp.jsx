@@ -499,194 +499,103 @@ export default function VotingApp() {
   };
 
   // login
-  const login = (rawName, rawClub) => {
-    const name = (rawName || "").trim();
-    const club = (rawClub || "").trim();
-    setVerificationError("");
+ const login = (rawName, rawClub) => {
+  const name = (rawName || "").trim();
+  const club = (rawClub || "").trim();
+  setVerificationError("");
 
-    if (!name) {
-      setVerificationError("Please enter a manager name");
-      return;
-    }
+  if (!name) {
+    setVerificationError("Please enter a manager name");
+    return;
+  }
 
-    if (votingClosed) {
-      const isAdminName = adminUsers.some(
-        (a) => a.toLowerCase() === name.toLowerCase()
-      );
-      if (!isAdminName) {
-        const d = new Date(votingDeadline);
-        setVerificationError(
-          `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
-        );
-        return;
-      }
-    }
+  // Closed? only admins may vote after deadline
+  if (votingClosed && !adminUsers.includes(name)) {
+    const d = new Date(votingDeadline);
+    setVerificationError(`Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`);
+    return;
+  }
 
-    const match = findCanonicalManager(name, club);
-    if (match === "AMBIGUOUS") {
-      setVerificationError(
-        "Multiple managers share that name. Please select your club."
-      );
-      setNeedsClub(true);
-      return;
-    }
-    if (!match) {
-      setVerificationError(
-        `"${name}" is not found in the active Top 100 manager database.`
-      );
-      return;
-    }
+  // Find canonical manager
+  const matches = validManagers.filter(
+    m => m.name?.trim().toLowerCase() === name.toLowerCase()
+  );
 
-    const canonicalName = match.name;
-    const canonicalClub = match.club;
+  if (matches.length === 0) {
+    setVerificationError(`"${name}" is not found in the active Top 100 manager database.`);
+    return;
+  }
+  if (matches.length > 1 && !club) {
+    setVerificationError(`Multiple managers called "${name}" — please select your club.`);
+    return;
+  }
+  const canonical = matches.length === 1
+    ? matches[0]
+    : matches.find(m => (m.club || "").trim().toLowerCase() === club.toLowerCase());
 
-    // one ballot per canonical identity
-    const key = `${canonicalName}|${canonicalClub}`.toLowerCase();
-    const hasVoted = Object.keys(allVotes).some((k) => k.toLowerCase() === key);
-    if (hasVoted && !adminUsers.includes(canonicalName)) {
-      setVerificationError(
-        `"${canonicalName}" has already cast votes. Each manager can only vote once.`
-      );
-      return;
-    }
+  if (!canonical) {
+    setVerificationError(`"${name}" with club "${club}" not found in the active Top 100 manager database.`);
+    return;
+  }
 
-    setCurrentManager(canonicalName);
-    setCurrentClub(canonicalClub);
-    setIsLoggedIn(true);
-    setIsAdmin(
-      adminUsers.some((a) => a.toLowerCase() === canonicalName.toLowerCase())
-    );
-  };
+  setCurrentManager(canonical.name);
+  setIsLoggedIn(true);
+  setIsAdmin(adminUsers.includes(canonical.name));
+};
 
   // submit vote
-  const submitVote = (category, nomineeId) => {
-    if (!isLoggedIn || votingClosed || !currentManager) return;
+  const submitVote = async (category, nomineeId) => {
+  if (!isLoggedIn || votingClosed || !currentManager) return;
 
-    const managerKey = `${currentManager}|${currentClub}`;
+  const managerName = currentManager;
 
-    setVotes((prev) => ({ ...prev, [category]: nomineeId }));
-    setVotingComplete((prev) => ({ ...prev, [category]: true }));
-
-    setAllVotes((prev) => ({
-      ...prev,
-      [managerKey]: { ...(prev[managerKey] || {}), [category]: nomineeId },
-    }));
-
-    setVoterNames((prev) => ({
-      ...prev,
-      [`${category}_${nomineeId}`]: [
-        ...(prev[`${category}_${nomineeId}`] || []),
-        { name: currentManager, timestamp: new Date().toISOString() },
-      ],
-    }));
-
-    try {
-      const nomineeObj =
-        categories[category]?.nominees?.find((n) => n.id === nomineeId) ||
-        null;
-      const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
-
-      fetch("/api/submit-vote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          manager: currentManager,
-          category,
-          nomineeId,
-          nomineeName,
-          season: selectedSeason,
-        }),
-      }).catch(() => {});
-    } catch {
-      // ignore
+  // If the manager had a previous vote in this category, remove them from that nominee's list
+  setVoterNames(prev => {
+    const draft = { ...prev };
+    const prevNominee = allVotes[managerName]?.[category];
+    if (prevNominee && prevNominee !== nomineeId) {
+      const key = `${category}_${prevNominee}`;
+      draft[key] = (draft[key] || []).filter(v => v.name !== managerName);
     }
-  };
+    // add to new nominee list
+    const newKey = `${category}_${nomineeId}`;
+    draft[newKey] = [
+      ...(draft[newKey] || []).filter(v => v.name !== managerName),
+      { name: managerName, timestamp: new Date().toISOString() },
+    ];
+    return draft;
+  });
 
-  const removeVote = (category, nomineeId, voterName) => {
-    if (!isAdmin) return;
+  // Update aggregate store
+  setAllVotes(prev => ({
+    ...prev,
+    [managerName]: { ...(prev[managerName] || {}), [category]: nomineeId },
+  }));
 
-    setVoterNames((prev) => ({
-      ...prev,
-      [`${category}_${nomineeId}`]: (prev[`${category}_${nomineeId}`] || []).filter(
-        (v) => v.name !== voterName
-      ),
-    }));
+  // Personal UI
+  setVotes(prev => ({ ...prev, [category]: nomineeId }));
+  setVotingComplete(prev => ({ ...prev, [category]: true }));
 
-    setAllVotes((prev) => {
-      const next = { ...prev };
-      const key = Object.keys(next).find((k) => k.split("|")[0] === voterName);
-      if (key && next[key]?.[category]) {
-        delete next[key][category];
-        if (Object.keys(next[key]).length === 0) delete next[key];
-      }
-      return next;
+  // Persist (now performs UPSERT on the sheet)
+  try {
+    const nomineeObj = categories[category]?.nominees?.find(n => n.id === nomineeId);
+    const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
+
+    await fetch("/api/submit-vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        season: selectedSeason,
+        manager: managerName,
+        category,
+        nomineeId,
+        nomineeName,
+      }),
     });
-  };
-
-  const exportResults = () => {
-    if (!isAdmin) return;
-    const out = {};
-    Object.keys(categories).forEach((category) => {
-      out[category] = {};
-      categories[category].nominees.forEach((nominee) => {
-        const voteCount = getVoteCount(category, nominee.id);
-        const voters = voterNames[`${category}_${nominee.id}`] || [];
-        out[category][nominee.name] = { votes: voteCount, voters };
-      });
-    });
-
-    const dataStr = JSON.stringify(out, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${selectedSeason}-voting-results.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const getVoteCount = (category, nomineeId) => {
-    let count = 0;
-    Object.values(allVotes).forEach((mv) => {
-      if (mv[category] === nomineeId) count++;
-    });
-    return count;
-  };
-
-  const getTotalVotes = (category) =>
-    Object.values(allVotes).filter((mv) => mv[category]).length;
-
-    const getTimeRemaining = () => {
-    const now = new Date();
-    const deadline = new Date(votingDeadline);
-    const diff = deadline.getTime() - now.getTime();
-    if (diff <= 0) return "Voting Closed";
-
-    const MIN = 1000 * 60;
-    const HOUR = MIN * 60;
-    const DAY = HOUR * 24;
-
-    const days = Math.floor(diff / DAY);
-    const hours = Math.floor((diff % DAY) / HOUR);
-    const minutes = Math.floor((diff % HOUR) / MIN);
-
-    return `${days}d ${hours}h ${minutes}m remaining`;
-  };
-
-  const logout = () => {
-    setIsLoggedIn(false);
-    setCurrentManager("");
-    setCurrentClub("");
-    setIsAdmin(false);
-    setVotes({});
-    setVotingComplete({});
-    setResults(false);
-    setVerificationError("");
-    setNameInput("");
-    setClubInput("");
-    setNeedsClub(false);
-  };
-
+  } catch (_) {
+    // ignore network errors in UI
+  }
+};
   // ---- UI ----
   return isLoggedIn ? (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
