@@ -789,20 +789,41 @@ export default function VotingApp() {
           <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
           <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
 
-          {
-            id: "andre_guerra_cup",
-            name: "André Guerra",
-            club: "FC Porto",
-            achievement: "Top 100 Shield Winner",
-            description: "Won the premier shield competition",
-          },
-          {
-            id: "james_mckenzie_cup",
-            name: "James Mckenzie",
-            club: "Chelsea",
-            achievement: "SMFA Super Cup Winner",
-            description: "Prestigious European super cup triumph",
-          },
+<div className="text-sm text-yellow-300 flex items-center gap-2">
+  <Calendar className="w-4 h-4 inline" />
+  {getTimeRemaining()}
+
+  {isAdmin && (
+    !isEditingDeadline ? (
+      <button
+        onClick={() => setIsEditingDeadline(true)}
+        className="ml-2 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
+        title="Edit voting deadline"
+      >
+        Edit deadline
+      </button>
+    ) : (
+      <>
+        <input
+          type="datetime-local"
+          className="ml-2 bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
+          value={new Date(votingDeadline).toISOString().slice(0, 16)}
+          onChange={(e) => {
+            const v = e.target.value
+              ? new Date(e.target.value).toISOString().slice(0, 19)
+              : "";
+            if (v) setVotingDeadline(v);
+          }}
+        />
+        <button
+          onClick={() => setIsEditingDeadline(false)}
+          className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
+        >
+          Done
+        </button>
+      </>
+    )
+  )}
         </div>
 
         <div className="space-y-4">
