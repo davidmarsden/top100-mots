@@ -350,7 +350,7 @@ export default function VotingApp() {
             name: "Bojan H",
             club: "Bayern München",
             achievement: "SMFA Shield Winner + 3rd place",
-            description: "Strong overperformance (predicted 6th, +8 VA)",
+            description: "Strong overperformance (predicted 11th, +8 VA)",
           },
         ],
       },
