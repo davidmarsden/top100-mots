@@ -336,7 +336,6 @@ export default function VotingApp() {
             club: "AC Milan",
             achievement: "3rd best statistical performance. Charity Shield Winner.",
             description: "Predicted to be relegated, finished 9th.",
-              "Predicted 15th → finished 4th, incredible transformation",
           },
           {
             id: "doug_earle_d1",
