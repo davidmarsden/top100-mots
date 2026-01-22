@@ -846,7 +846,7 @@ export default function VotingApp() {
             <div className="flex items-center gap-3">
               <Trophy className="w-8 h-8 text-yellow-400" />
               <div>
-                <h1 className="text-xl font-bold text-white">Season 25 Manager Awards</h1>
+                <h1 className="text-xl font-bold text-white">Season 26 Manager Awards</h1>
                 <p className="text-sm text-gray-300">
                   Voting as: {currentManager}
                   {currentClub ? ` (${currentClub})` : ""}
