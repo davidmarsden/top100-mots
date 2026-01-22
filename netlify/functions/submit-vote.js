@@ -33,7 +33,7 @@ export default async (req) => {
     });
     const sheets = google.sheets({ version: "v4", auth });
 
-    // Decide sheet name from season, e.g. Votes_S25
+    // Decide sheet name from season, e.g. Votes_S26
     const tab = `Votes_${season}`;
 
     // Read all existing rows to find an existing one for (manager, category)
