@@ -128,7 +128,7 @@ const FALLBACK_ACTIVE_MANAGER_NAMES = [
 
 export default function VotingApp() {
   // ---- State ----
-  const [selectedSeason] = useState("S25");
+  const [selectedSeason] = useState("S26");
 
   const [currentManager, setCurrentManager] = useState("");
   const [currentClub, setCurrentClub] = useState("");
@@ -280,41 +280,41 @@ export default function VotingApp() {
         icon: Trophy,
         nominees: [
           {
-            id: "andre_libras",
-            name: "André Libras-Boas",
-            club: "Hellas Verona",
+            id: "andre_guerra",
+            name: "André Guerra",
+            club: "FC Porto",
             achievement:
-              "Treble Winner (D1 + SMFA Champions Cup + Charity Shield)",
-            description: "Only manager to win multiple major trophies in S25",
+              "Double Winner (D1 + SMFA Shield)",
+            description: "First D1 title at the 26th attempt! Best statistical performance in D1.",
           },
           {
-            id: "david_marsden",
-            name: "David Marsden",
-            club: "Hamburger SV",
+            id: "fredrik_johansson",
+            name: "Fredrik Johansson",
+            club: "Sporting CP",
             achievement:
-              "Greatest Transformation (+16 VA - Highest in all divisions)",
-            description: "D2 Champion: 17th prediction → Champions",
+              "D2 Champion",
+            description: "Won the division in his first season at the club.",
           },
           {
-            id: "scott_mckenzie",
-            name: "Scott Mckenzie",
-            club: "São Paulo FC",
-            achievement: "GOAT's Masterclass (+11 VA in Division 1)",
-            description: "#1 all-time manager: 15th → 4th place",
+            id: "glen_mullan",
+            name: "Glen Mullan",
+            club: "4CD Espanyol",
+            achievement: "Youth Cup Winners + D2 Playoff Finalists.",
+            description: "First Youth Cup Final win after five losses.",
           },
           {
-            id: "simon_thomas",
-            name: "simon thomas",
-            club: "AC Milan",
-            achievement: "Cup Champion + Great Escape (+8 VA)",
-            description: "Top 100 Cup Winner: 20th prediction → 12th finish",
+            id: "jibriil_mohamed",
+            name: "Jibriil Mohamed",
+            club: "VfL Wolfsburg",
+            achievement: "D3 Champion",
+            description: "Best statistical performance in Top 100.",
           },
           {
-            id: "adam",
-            name: "Adam",
-            club: "Barcelona",
-            achievement: "Multi-Generational Master",
-            description: "World Club Cup + Youth Cup Winner",
+            id: "the_fm",
+            name: "The FM",
+            club: "FC Basel",
+            achievement: "D4 Champion",
+            description: "Won the division in his first season in Top 100. 2nd best statistical performance in the game world.",
           },
         ],
       },
@@ -323,35 +323,29 @@ export default function VotingApp() {
         icon: Star,
         nominees: [
           {
-            id: "andre_libras_d1",
-            name: "André Libras-Boas",
-            club: "Hellas Verona",
-            achievement: "D1 Champion + SMFA Champions Cup + Charity Shield",
-            description:
-              "Successfully defended title, only multiple trophy winner",
+            id: "andre_guerra_d1",
+            name: "André Guerra",
+            club: "FC Porto",
+            achievement:
+              "Double Winner (D1 + SMFA Shield)",
+            description: "First D1 title at the 26th attempt! Best statistical performance in D1.",
           },
           {
-            id: "scott_mckenzie_d1",
-            name: "Scott Mckenzie",
-            club: "São Paulo FC",
-            achievement: "Top Statistical Performer (+11 VA, +3 PVA)",
-            description:
+            id: "simon_thomas_d1",
+            name: "simon thomas",
+            club: "AC Milan",
+            achievement: "3rd best statistical performance. Charity Shield Winner.",
+            description: "Predicted to be relegated, finished 9th.",
               "Predicted 15th → finished 4th, incredible transformation",
           },
           {
-            id: "adam_d1",
-            name: "Adam",
-            club: "Barcelona",
-            achievement: "World Club Cup + Youth Cup Winner",
-            description: "2nd place finish, multi-competition excellence",
+            id: "doug_earle_d1",
+            name: "Doug Earle",
+            club: "Leicester City",
+            achievement: "World Club Cup Winner.",
+            description: "2nd in D1. 2nd best statistical performance.",
           },
-          {
-            id: "bojan_d1",
-            name: "Bojan H",
-            club: "Bayern München",
-            achievement: "SMFA Shield Winner + 3rd place",
-            description: "Strong overperformance (predicted 11th, +8 VA)",
-          },
+         
         ],
       },
       division2: {
