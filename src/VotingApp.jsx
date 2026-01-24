@@ -709,37 +709,11 @@ const votingClosed = useMemo(() => {
             <div className="mt-2 text-sm text-yellow-300 flex items-center gap-2">
               <Calendar className="w-4 h-4 inline" />
               {getTimeRemaining()}
-              {isAdmin && (
-                !isEditingDeadline ? (
-                  <button
-                    onClick={() => setIsEditingDeadline(true)}
-                    className="ml-2 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-                    title="Edit voting deadline"
-                  >
-                    Edit deadline
-                  </button>
-                ) : (
-                  <>
-                    <input
-                      type="datetime-local"
-                      className="ml-2 bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-                      value={new Date(votingDeadline).toISOString().slice(0, 16)}
-                      onChange={(e) => {
-                        const v = e.target.value
-                          ? new Date(e.target.value).toISOString().slice(0, 19)
-                          : "";
-                        if (v) setVotingDeadline(v);
-                      }}
-                    />
-                    <button
-                      onClick={() => setIsEditingDeadline(false)}
-                      className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
-                    >
-                      Done
-                    </button>
-                  </>
-                )
-              )}
+
+
+
+
+    
             </div>
           </div>
 
@@ -853,7 +827,7 @@ const votingClosed = useMemo(() => {
                     Edit
                   </button>
                 )}
-           {isAdmin && votingDeadline && (
+{isAdmin && votingDeadline && (
   !isEditingDeadline ? (
     <button
       onClick={() => setIsEditingDeadline(true)}
@@ -874,7 +848,17 @@ const votingClosed = useMemo(() => {
       />
 
       <button
-        onClick={() => setIsEditingDeadline(false)}
+        onClick={async () => {
+  setIsEditingDeadline(false);
+
+  try {
+    await fetch("/api/deadline", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deadline: votingDeadline })
+    });
+  } catch {}
+}}
         className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
       >
         Done
@@ -905,6 +889,12 @@ const votingClosed = useMemo(() => {
                   {talliesLoading ? "Syncing…" : "From Google Sheets"}
                 </span>
               )}
+
+useEffect(() => {
+  if (votingClosed) {
+    setResults(true);
+  }
+}, [votingClosed]);
 
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
@@ -1000,7 +990,7 @@ const votingClosed = useMemo(() => {
                 const percentage =
                   totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
 
-                const disabled = votingClosed; // still let admins toggle results separately
+                const disabled = votingClosed && !isAdmin; // still let admins toggle results separately
 
                 return (
                   <div
