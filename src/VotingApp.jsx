@@ -229,8 +229,9 @@ useEffect(() => {
 // Closed flag (absolute UTC compare)
 const votingClosed = useMemo(() => {
   if (!votingDeadline) return false;
+  if (isAdmin) return false;
   return Date.now() > Date.parse(votingDeadline);
-}, [votingDeadline]);
+}, [votingDeadline, isAdmin]);
 
 useEffect(() => {
   if (votingClosed) {
@@ -858,10 +859,13 @@ useEffect(() => {
 
   try {
     await fetch("/api/deadline", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deadline: votingDeadline })
-    });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-admin-token": import.meta.env.VITE_ADMIN_TOKEN,
+  },
+  body: JSON.stringify({ deadline: votingDeadline }),
+});
   } catch {}
 }}
         className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
