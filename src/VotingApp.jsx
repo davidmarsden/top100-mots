@@ -21,6 +21,17 @@ const fmtDate = (iso) => new Date(iso).toLocaleString();
 // Admins
 const ADMIN_USERS = ["David Marsden", "Regan Thompson"];
 
+const norm = (s) =>
+  (s ?? "")
+    .toString()
+    .normalize("NFKC")
+    .replace(/\u00A0/g, " ") // NBSP -> space
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const isAdminName = (name) => ADMIN_USERS.some((a) => norm(a) === norm(name));
+
 // Fallback active manager *names* (when /api/managers is unavailable)
 // These are treated as active=true and club="" as a fallback only.
 const FALLBACK_ACTIVE_MANAGER_NAMES = [
@@ -284,22 +295,14 @@ useEffect(() => {
 
   // ---- Club-aware matching helpers ----
   const findMatchesByName = (name) =>
-    validManagers.filter(
-      (m) =>
-        m.name &&
-        m.name.trim().toLowerCase() === (name || "").trim().toLowerCase()
-    );
+  validManagers.filter((m) => m.name && norm(m.name) === norm(name));
 
   const findCanonicalManager = (name, clubOptional) => {
     const matches = findMatchesByName(name);
     if (matches.length === 0) return null;
     if (matches.length === 1) return matches[0];
     if (!clubOptional) return "AMBIGUOUS";
-    const byClub = matches.find(
-      (m) =>
-        (m.club || "").trim().toLowerCase() ===
-        (clubOptional || "").trim().toLowerCase()
-    );
+    const byClub = matches.find((m) => norm(m.club) === norm(clubOptional));
     return byClub || null;
   };
 
@@ -517,44 +520,47 @@ useEffect(() => {
   };
 
   const login = (rawName, rawClub) => {
-    setVerificationError("");
+  setVerificationError("");
 
-    const name = (rawName || "").trim();
-    const club = (rawClub || "").trim();
+  const name = (rawName || "").trim();
+  const club = (rawClub || "").trim();
 
-    if (!name) {
-      setVerificationError("Please enter a manager name");
-      return;
-    }
+  if (!name) {
+    setVerificationError("Please enter a manager name");
+    return;
+  }
 
-    if (votingClosed && !ADMIN_USERS.includes(name)) {
-      const d = new Date(votingDeadline);
-      setVerificationError(
-        `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
-      );
-      return;
-    }
+  // Resolve canonical manager first
+  const match = findCanonicalManager(name, club || undefined);
 
-    const match = findCanonicalManager(name, club || undefined);
-    if (match === "AMBIGUOUS") {
-      setNeedsClub(true);
-      setVerificationError(
-        "Multiple managers share this name — please pick the correct club."
-      );
-      return;
-    }
-    if (!match) {
-      setVerificationError(
-        `"${name}" is not found in the active Top 100 manager database.`
-      );
-      return;
-    }
+  if (match === "AMBIGUOUS") {
+    setNeedsClub(true);
+    setVerificationError("Multiple managers share this name — please pick the correct club.");
+    return;
+  }
 
-    setCurrentManager(match.name);
-    setCurrentClub(match.club || "");
-    setIsLoggedIn(true);
-    setIsAdmin(ADMIN_USERS.includes(match.name));
-  };
+  if (!match) {
+    setVerificationError(`"${name}" is not found in the active Top 100 manager database.`);
+    return;
+  }
+
+  // Admin check based on canonical name (normalized)
+  const admin = isAdminName(match.name);
+
+  // Closed gate applies ONLY after we know admin status
+  if (votingClosed && !admin) {
+    const d = new Date(votingDeadline);
+    setVerificationError(
+      `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
+    );
+    return;
+  }
+
+  setCurrentManager(match.name);
+  setCurrentClub(match.club || "");
+  setIsLoggedIn(true);
+  setIsAdmin(admin);
+};
 
   const logout = () => {
     setIsLoggedIn(false);
@@ -825,15 +831,7 @@ useEffect(() => {
               <div className="text-sm text-yellow-300 flex items-center gap-2">
                 <Calendar className="w-4 h-4 inline" />
                 {getTimeRemaining()}
-                {isAdmin && !isEditingDeadline && (
-                  <button
-                    onClick={() => setIsEditingDeadline(true)}
-                    className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-                    title="Edit voting deadline"
-                  >
-                    Edit
-                  </button>
-                )}
+
 {isAdmin && votingDeadline && (
   !isEditingDeadline ? (
     <button
