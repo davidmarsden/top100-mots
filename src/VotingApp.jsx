@@ -146,29 +146,80 @@ export default function VotingApp() {
   const [remoteTallies, setRemoteTallies] = useState(null);
   const [talliesLoading, setTalliesLoading] = useState(false);
 
-  // Voting deadline
-  const [votingDeadline, setVotingDeadline] = useState(() => {
-    // Default: a few days ahead in London time (store in ISO)
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + 5);
-    return d.toISOString().slice(0, 19);
-  });
-  const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+ // ---------- GLOBAL DEADLINE (from Netlify env) ----------
 
-  // Persist deadline locally
-  useEffect(() => {
-    const saved = localStorage.getItem("votingDeadline");
-    if (saved) setVotingDeadline(saved);
-  }, []);
-  useEffect(() => {
-    localStorage.setItem("votingDeadline", votingDeadline);
-  }, [votingDeadline]);
+const utcIsoToLondonInputValue = (utcIso) => {
+  if (!utcIso) return "";
 
-  // Client-side “closed” flag
-  const votingClosed = useMemo(
-    () => new Date() > new Date(votingDeadline),
-    [votingDeadline]
+  const d = new Date(utcIso);
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+
+  const get = (t) => parts.find((p) => p.type === t)?.value || "";
+
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+};
+
+const londonInputValueToUtcIso = (value) => {
+  if (!value) return "";
+
+  const [d, t] = value.split("T");
+  const [y, m, day] = d.split("-").map(Number);
+  const [hh, mm] = t.split(":").map(Number);
+
+  const guess = new Date(Date.UTC(y, m - 1, day, hh, mm));
+
+  const london = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(guess);
+
+  const get = (t) => london.find((p) => p.type === t)?.value || "0";
+
+  const realUtc = Date.UTC(
+    Number(get("year")),
+    Number(get("month")) - 1,
+    Number(get("day")),
+    Number(get("hour")),
+    Number(get("minute"))
   );
+
+  return new Date(realUtc).toISOString();
+};
+
+const LONDON_TZ = "Europe/London";
+
+const [votingDeadline, setVotingDeadline] = useState(null);
+const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+
+// Load from server
+useEffect(() => {
+  fetch("/api/deadline")
+    .then((r) => r.json())
+    .then((d) => {
+      if (d.deadline) setVotingDeadline(d.deadline);
+    })
+    .catch(() => {});
+}, []);
+
+// Closed flag (absolute UTC compare)
+const votingClosed = useMemo(() => {
+  if (!votingDeadline) return false;
+  return Date.now() > Date.parse(votingDeadline);
+}, [votingDeadline]);
 
   // In-memory aggregate (local quick feedback)
   const [allVotes, setAllVotes] = useState({});
@@ -802,27 +853,35 @@ export default function VotingApp() {
                     Edit
                   </button>
                 )}
-                {isAdmin && isEditingDeadline && (
-                  <>
-                    <input
-                      type="datetime-local"
-                      className="bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-                      value={new Date(votingDeadline).toISOString().slice(0, 16)}
-                      onChange={(e) => {
-                        const v = e.target.value
-                          ? new Date(e.target.value).toISOString().slice(0, 19)
-                          : "";
-                        if (v) setVotingDeadline(v);
-                      }}
-                    />
-                    <button
-                      onClick={() => setIsEditingDeadline(false)}
-                      className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
-                    >
-                      Done
-                    </button>
-                  </>
-                )}
+           {isAdmin && votingDeadline && (
+  !isEditingDeadline ? (
+    <button
+      onClick={() => setIsEditingDeadline(true)}
+      className="ml-2 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
+    >
+      Edit deadline
+    </button>
+  ) : (
+    <>
+      <input
+        type="datetime-local"
+        value={utcIsoToLondonInputValue(votingDeadline)}
+        onChange={(e) => {
+          const utc = londonInputValueToUtcIso(e.target.value);
+          if (utc) setVotingDeadline(utc);
+        }}
+        className="ml-2 bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
+      />
+
+      <button
+        onClick={() => setIsEditingDeadline(false)}
+        className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
+      >
+        Done
+      </button>
+    </>
+  )
+)}
               </div>
 
               {/* Results toggle or closed banner */}
