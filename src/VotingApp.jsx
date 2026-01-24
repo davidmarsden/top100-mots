@@ -290,7 +290,7 @@ export default function VotingApp() {
           {
             id: "glen_mullan",
             name: "Glen Mullan",
-            club: "4CD Espanyol",
+            club: "RCD Espanyol",
             achievement: "Youth Cup Winners + D2 Playoff Finalists.",
             description: "First Youth Cup Final win after five losses.",
           },
