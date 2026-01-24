@@ -12,7 +12,7 @@ export default async () => {
 
     const { data } = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: "Votes_S25!A:E", // Timestamp | Manager | Category | NomineeId | NomineeName
+      range: "Votes_S26!A:E", // Timestamp | Manager | Category | NomineeId | NomineeName
     });
     const rows = data.values || [];
 
