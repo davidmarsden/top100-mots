@@ -227,11 +227,12 @@ useEffect(() => {
 }, []);
 
 // Closed flag (absolute UTC compare)
-const votingClosed = useMemo(() => {
+const rawVotingClosed = useMemo(() => {
   if (!votingDeadline) return false;
-  if (isAdmin) return false;
   return Date.now() > Date.parse(votingDeadline);
-}, [votingDeadline, isAdmin]);
+}, [votingDeadline]);
+
+const votingClosed = rawVotingClosed && !isAdmin; // admins can always operate
 
 useEffect(() => {
   if (votingClosed) {
@@ -549,7 +550,7 @@ useEffect(() => {
   const admin = isAdminName(match.name);
 
   // Closed gate applies ONLY after we know admin status
-  if (votingClosed && !admin) {
+  if (rawVotingClosed && !ADMIN_USERS.includes(name)) {
     const d = new Date(votingDeadline);
     setVerificationError(
       `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
