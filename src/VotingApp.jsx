@@ -221,6 +221,13 @@ const votingClosed = useMemo(() => {
   return Date.now() > Date.parse(votingDeadline);
 }, [votingDeadline]);
 
+useEffect(() => {
+  if (votingClosed) {
+    setResults(true);
+  }
+}, [votingClosed]);
+
+
   // In-memory aggregate (local quick feedback)
   const [allVotes, setAllVotes] = useState({});
   const [voterNames, setVoterNames] = useState({});
@@ -890,11 +897,6 @@ const votingClosed = useMemo(() => {
                 </span>
               )}
 
-useEffect(() => {
-  if (votingClosed) {
-    setResults(true);
-  }
-}, [votingClosed]);
 
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
