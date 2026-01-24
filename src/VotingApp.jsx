@@ -228,19 +228,20 @@ useEffect(() => {
 }, []);
 
 // Closed flag (absolute UTC compare)
-const rawVotingClosed = useMemo(() => {
-  if (!votingDeadline) return false;
-  return Date.now() > Date.parse(votingDeadline);
+const isValidDeadline = useMemo(() => {
+  return !!votingDeadline && !Number.isNaN(Date.parse(votingDeadline));
 }, [votingDeadline]);
 
-const votingClosed = rawVotingClosed && !isAdmin; // admins can always operate
+const rawVotingClosed = useMemo(() => {
+  if (!isValidDeadline) return "Deadline not set";
+  return Date.now() > Date.parse(votingDeadline);
+}, [isValidDeadline, votingDeadline]);
+
+const votingClosed = rawVotingClosed && !isAdmin;
 
 useEffect(() => {
-  if (votingClosed) {
-    setResults(true);
-  }
-}, [votingClosed]);
-
+  if (rawVotingClosed) setResults(true);
+}, [rawVotingClosed]);
   // In-memory aggregate (local quick feedback)
   const [allVotes, setAllVotes] = useState({});
   const [voterNames, setVoterNames] = useState({});
