@@ -284,16 +284,8 @@ export default function VotingApp() {
             name: "André Guerra",
             club: "FC Porto",
             achievement:
-              "Double Winner (D1 + SMFA Shield)",
+              "Double Winner (D1 + SMFA Shield).",
             description: "First D1 title at the 26th attempt! Best statistical performance in D1.",
-          },
-          {
-            id: "fredrik_johansson",
-            name: "Fredrik Johansson",
-            club: "Sporting CP",
-            achievement:
-              "D2 Champion",
-            description: "Won the division in his first season at the club.",
           },
           {
             id: "glen_mullan",
@@ -306,14 +298,14 @@ export default function VotingApp() {
             id: "jibriil_mohamed",
             name: "Jibriil Mohamed",
             club: "VfL Wolfsburg",
-            achievement: "D3 Champion",
+            achievement: "D3 Champion.",
             description: "Best statistical performance in Top 100.",
           },
           {
             id: "the_fm",
             name: "The FM",
             club: "FC Basel",
-            achievement: "D4 Champion",
+            achievement: "D4 Champion.",
             description: "Won the division in his first season in Top 100. 2nd best statistical performance in the game world.",
           },
         ],
@@ -351,28 +343,27 @@ export default function VotingApp() {
         title: "Division 2 Manager of the Season",
         icon: Award,
         nominees: [
-          {
-            id: "david_marsden_d2",
-            name: "David Marsden",
-            club: "Hamburger SV",
-            achievement: "Division 2 Champion",
-            description:
-              "Extraordinary turnaround: predicted 17th → title (+16 VA)",
+           {
+            id: "fredrik_johansson",
+            name: "Fredrik Johansson",
+            club: "Sporting CP",
+            achievement:
+              "D2 Champion",
+            description: "Won the division in his first season at the club.",
           },
           {
-            id: "greg_bilboatu_d2",
-            name: "⍟Greg Bilboaţu",
-            club: "Dinamo Zagreb",
-            achievement: "3rd place; top statistical performance",
-            description:
-              "Predicted 16th → 3rd (+13 VA); narrowly missed auto-promo",
+            id: "chris_meida_d2",
+            name: "Chris Meida",
+            club: "CSKA Moskva",
+            achievement: "Promoted + Youth Cup semi-final.",
+            description: "2nd successive promotion + Youth Cup semi-final after last season's Youth Shield win.",
           },
           {
-            id: "dave_oz_d2",
-            name: "Dave Oz Osborne",
-            club: "Málaga CF",
-            achievement: "Play-off Winner (promotion secured)",
-            description: "Clutch playoff performance to seal promotion",
+            id: "glen_mullan",
+            name: "Glen Mullan",
+            club: "RCD Espanyol",
+            achievement: "Youth Cup Winners + D2 Playoff Finalists.",
+            description: "First Youth Cup Final win in fifth final.",
           },
         ],
       },
@@ -380,28 +371,20 @@ export default function VotingApp() {
         title: "Division 3 Manager of the Season",
         icon: Award,
         nominees: [
+
           {
-            id: "chris_meida_d3",
-            name: "Chris Meida",
-            club: "CSKA Moskva",
-            achievement: "D3 Champion + Youth Shield Winner",
-            description: "Pred 9th → title (+8 VA, +9 PVA); youth success too",
+            id: "jibriil_mohamed_d3",
+            name: "Jibriil Mohamed",
+            club: "VfL Wolfsburg",
+            achievement: "D3 Champion",
+            description: "Best statistical performance in Top 100.",
           },
           {
-            id: "mike_scallotti_d3",
-            name: "Mike Scallotti",
-            club: "Everton",
-            achievement: "Play-off Winner (promotion secured)",
-            description:
-              "Comeback from bottom into promotion—underdog story",
-          },
-          {
-            id: "jamie_rune_d3",
-            name: "Jamie ᚺ",
-            club: "FC Augsburg",
-            achievement: "3rd place; exceptional stats",
-            description:
-              "Pred 13th → 3rd (+10 VA); outstanding tactical management",
+            id: "chris_union_d3",
+            name: "Chris Union",
+            club: "Boca Juniors",
+            achievement: "Promoted.",
+            description: "2nd successive promotion.",
           },
         ],
       },
@@ -410,34 +393,28 @@ export default function VotingApp() {
         icon: Award,
         nominees: [
           {
-            id: "stuart_monteith_d4",
-            name: "Stuart Monteith",
-            club: "Montpellier HSC",
-            achievement: "2nd place + Automatic Promotion",
+            id: "the_fm",
+            name: "The FM",
+            club: "FC Basel",
+            achievement: "D4 Champion.",
+            description: "Won the division in his first season in Top 100. 2nd best statistical performance in the game world.",
+          },
+
+          {
+            id: "marc_ques_d4",
+            name: "Marc Ques",
+            club: "FK Partizan",
+            achievement: "Promoted",
             description:
-              "Pred 14th → 2nd; huge overperformance to auto-promo",
+              "2nd successive promotion.",
           },
           {
-            id: "chris_union_d4",
-            name: "Chris Union",
-            club: "Boca Juniors",
-            achievement: "Division 4 Champion",
-            description: "Won title from 3rd prediction; 96.0 attack rating",
-          },
-          {
-            id: "fredrik_johansson_d4",
-            name: "Fredrik Johansson",
-            club: "VfL Wolfsburg",
-            achievement: "Play-off Winner (promotion secured)",
-            description: "Delivered in the clutch to go up via playoffs",
-          },
-          {
-            id: "ruts66_d4",
-            name: "ruts66",
-            club: "Feyenoord",
-            achievement: "Top statistical performer",
+            id: "marian_moise_d4",
+            name: "Marian Moise",
+            club: "Newcastle United",
+            achievement: "Promoted.",
             description:
-              "Pred 17th → top VA (+13) despite playoff exit",
+              "2nd successive promotion.",
           },
         ],
       },
@@ -445,66 +422,23 @@ export default function VotingApp() {
         title: "Division 5 Manager of the Season",
         icon: Award,
         nominees: [
+
           {
-            id: "marc_ques_d5",
-            name: "Marc Ques",
-            club: "FK Partizan",
-            achievement: "Division 5 Champion",
+            id: "alessio_tonato_d5",
+            name: "Alessio Tonato",
+            club: "SSC Napoli",
+            achievement: "D5 Champion.",
             description:
-              "Pred 9th → clear title (+8 VA) and best stats",
+              "Won the division in his first season in Top 100. Top scoring team in Top 100.",
           },
+
           {
-            id: "bruno_neto_d5",
-            name: "Bruno Neto^^",
-            club: "Olympique Lyonnais",
-            achievement: "Runner-up; exceptional stats",
+            id: "gianluca_ghio_d5",
+            name: "Gianluca Ghio",
+            club: "Independiente",
+            achievement: "Promoted.",
             description:
-              "Pred 15th → 2nd (+13 VA); narrow miss for title",
-          },
-          {
-            id: "marian_moise_d5",
-            name: "Marian Moise",
-            club: "Newcastle United",
-            achievement: "Play-off Winner (promotion secured)",
-            description:
-              "Pred 11th → promoted via playoffs (+6 VA)",
-          },
-          {
-            id: "wayne_bullough_d5",
-            name: "Wayne Bullough",
-            club: "Athletic Club",
-            achievement: "Highest individual overperformance",
-            description:
-              "Pred 20th → massive +14 VA; long-term build paying off",
-          },
-        ],
-      },
-      cups: {
-        title: "Cup Competition Excellence",
-        icon: Trophy,
-        nominees: [
-          {
-            id: "andre_libras_cups",
-            name: "André Libras-Boas",
-            club: "Hellas Verona",
-            achievement: "SMFA Champions Cup Winner",
-            description:
-              "Won elite European competition alongside league success",
-          },
-          {
-            id: "adam_cups",
-            name: "Adam",
-            club: "Barcelona",
-            achievement: "World Club Cup + Youth Cup Winner",
-            description:
-              "Double cup success across senior and youth competitions",
-          },
-          {
-            id: "simon_thomas_cup",
-            name: "simon thomas",
-            club: "AC Milan",
-            achievement: "Top 100 Cup Winner",
-            description: "Won the premier knockout competition",
+              "Independiente's first promotion in 26 seasons.",
           },
         ],
       },
