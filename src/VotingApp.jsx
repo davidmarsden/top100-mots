@@ -15,25 +15,21 @@ import {
   Trash2,
 } from "lucide-react";
 
-// ---- Helper: date formatting ----
 const fmtDate = (iso) => new Date(iso).toLocaleString();
 
-// Admins
 const ADMIN_USERS = ["David Marsden", "Regan Thompson"];
 
 const norm = (s) =>
   (s ?? "")
     .toString()
     .normalize("NFKC")
-    .replace(/\u00A0/g, " ") // NBSP -> space
+    .replace(/\u00A0/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 
 const isAdminName = (name) => ADMIN_USERS.some((a) => norm(a) === norm(name));
 
-// Fallback active manager *names* (when /api/managers is unavailable)
-// These are treated as active=true and club="" as a fallback only.
 const FALLBACK_ACTIVE_MANAGER_NAMES = [
   "ANMOL SATAM",
   "Adam",
@@ -134,37 +130,12 @@ const FALLBACK_ACTIVE_MANAGER_NAMES = [
   "The FM",
   "Landucci",
   "Francesco Senesi",
-  "",
 ];
 
-export default function VotingApp() {
-  // ---- State ----
-  const [selectedSeason] = useState("S26");
-
-  const [currentManager, setCurrentManager] = useState("");
-  const [currentClub, setCurrentClub] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // UI state (local per-session)
-  const [votes, setVotes] = useState({}); // { category: nomineeId }
-  const [votingComplete, setVotingComplete] = useState({}); // { category: true }
-  const [results, setResults] = useState(false);
-  const [activeCategory, setActiveCategory] = useState("overall");
-  const [verificationError, setVerificationError] = useState("");
-
-  // Remote tallies (from Google Sheets via /api/results)
-  const [remoteTallies, setRemoteTallies] = useState(null);
-  const [talliesLoading, setTalliesLoading] = useState(false);
-
-
- // ---------- GLOBAL DEADLINE (from Netlify env) ----------
-
 const utcIsoToLondonInputValue = (utcIso) => {
-  if (!utcIso) return "";
+  if (!utcIso || Number.isNaN(Date.parse(utcIso))) return "";
 
   const d = new Date(utcIso);
-
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
     year: "numeric",
@@ -176,98 +147,116 @@ const utcIsoToLondonInputValue = (utcIso) => {
   }).formatToParts(d);
 
   const get = (t) => parts.find((p) => p.type === t)?.value || "";
-
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 };
 
-const londonInputValueToUtcIso = (value) => {
-  if (!value) return "";
+const londonInputValueToUtcIso = (inputValue) => {
+  if (!inputValue) return "";
 
-  const [d, t] = value.split("T");
-  const [y, m, day] = d.split("-").map(Number);
-  const [hh, mm] = t.split(":").map(Number);
+  const [datePart, timePart] = inputValue.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
 
-  const guess = new Date(Date.UTC(y, m - 1, day, hh, mm));
+  const utcGuess = new Date(Date.UTC(y, m - 1, d, hh, mm, 0));
 
-  const london = new Intl.DateTimeFormat("en-GB", {
+  const londonParts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
-    hour12: false,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  }).formatToParts(guess);
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(utcGuess);
 
-  const get = (t) => london.find((p) => p.type === t)?.value || "0";
+  const get = (type) => londonParts.find((p) => p.type === type)?.value || "00";
+  const ly = Number(get("year"));
+  const lm = Number(get("month"));
+  const ld = Number(get("day"));
+  const lhh = Number(get("hour"));
+  const lmm = Number(get("minute"));
+  const lss = Number(get("second"));
 
-  const realUtc = Date.UTC(
-    Number(get("year")),
-    Number(get("month")) - 1,
-    Number(get("day")),
-    Number(get("hour")),
-    Number(get("minute"))
-  );
+  const intendedLondonAsUtc = Date.UTC(y, m - 1, d, hh, mm, 0);
+  const actualLondonAsUtc = Date.UTC(ly, lm - 1, ld, lhh, lmm, lss);
+  const offsetMs = actualLondonAsUtc - intendedLondonAsUtc;
 
-  return new Date(realUtc).toISOString();
+  return new Date(utcGuess.getTime() - offsetMs).toISOString();
 };
 
-const LONDON_TZ = "Europe/London";
+export default function VotingApp() {
+  const [selectedSeason] = useState("S27");
 
-const [votingDeadline, setVotingDeadline] = useState(null);
-const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+  const [currentManager, setCurrentManager] = useState("");
+  const [currentClub, setCurrentClub] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-// Load from server
-useEffect(() => {
-  fetch("/api/deadline")
-    .then((r) => r.json())
-    .then((d) => {
-      if (d.deadline) setVotingDeadline(d.deadline);
-    })
-    .catch(() => {});
-}, []);
+  const [votes, setVotes] = useState({});
+  const [votingComplete, setVotingComplete] = useState({});
+  const [results, setResults] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("overall");
+  const [verificationError, setVerificationError] = useState("");
 
-// Closed flag (absolute UTC compare)
-const isValidDeadline = useMemo(() => {
-  return !!votingDeadline && !Number.isNaN(Date.parse(votingDeadline));
-}, [votingDeadline]);
+  const [remoteTallies, setRemoteTallies] = useState(null);
+  const [talliesLoading, setTalliesLoading] = useState(false);
 
-const rawVotingClosed = useMemo(() => {
-  if (!isValidDeadline) return "Deadline not set";
-  return Date.now() > Date.parse(votingDeadline);
-}, [isValidDeadline, votingDeadline]);
+  const [votingDeadline, setVotingDeadline] = useState(null);
+  const [isEditingDeadline, setIsEditingDeadline] = useState(false);
 
-const votingClosed = rawVotingClosed && !isAdmin;
-
-useEffect(() => {
-  if (rawVotingClosed) setResults(true);
-}, [rawVotingClosed]);
-  // In-memory aggregate (local quick feedback)
   const [allVotes, setAllVotes] = useState({});
   const [voterNames, setVoterNames] = useState({});
 
-  // ---- Valid Managers (club, name, active) ----
   const fallbackManagers = useMemo(
     () =>
-      FALLBACK_ACTIVE_MANAGER_NAMES.map((n) => ({
+      FALLBACK_ACTIVE_MANAGER_NAMES.filter(Boolean).map((n) => ({
         club: "",
         name: n,
         active: true,
       })),
     []
   );
+
   const [validManagers, setValidManagers] = useState(fallbackManagers);
 
-  // Try to hydrate from Google Sheet via Netlify Function
+  const [nameInput, setNameInput] = useState("");
+  const [clubInput, setClubInput] = useState("");
+  const [needsClub, setNeedsClub] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/deadline")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.deadline) setVotingDeadline(d.deadline);
+      })
+      .catch(() => {});
+  }, []);
+
+  const isValidDeadline = useMemo(() => {
+    return !!votingDeadline && !Number.isNaN(Date.parse(votingDeadline));
+  }, [votingDeadline]);
+
+  const rawVotingClosed = useMemo(() => {
+    if (!isValidDeadline) return false;
+    return Date.now() > Date.parse(votingDeadline);
+  }, [isValidDeadline, votingDeadline]);
+
+  const votingClosed = rawVotingClosed && !isAdmin;
+
+  useEffect(() => {
+    if (rawVotingClosed) setResults(true);
+  }, [rawVotingClosed]);
+
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       try {
         const res = await fetch("/api/managers");
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.ok || !Array.isArray(data?.managers)) return;
 
-        // Clean + dedupe by (name, club)
         const seen = new Set();
         const clean = data.managers
           .map((m) => ({
@@ -275,50 +264,40 @@ useEffect(() => {
             name: (m.name || "").toString().trim(),
             active: !!m.active,
           }))
-          .filter((m) => m.name)
+          .filter((m) => m.name && m.active)
           .filter((m) => {
-            const key = `${m.name.toLowerCase()}|${m.club.toLowerCase()}`;
+            const key = `${norm(m.name)}|${norm(m.club)}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-          })
-          .filter((m) => m.active); // only active
+          });
 
-        if (!cancelled && clean.length) {
-          setValidManagers(clean);
-        }
+        if (!cancelled && clean.length) setValidManagers(clean);
       } catch {
-        // leave fallback
+        // keep fallback list
       }
     })();
+
     return () => {
       cancelled = true;
     };
   }, [fallbackManagers]);
 
-  // ---- Club-aware matching helpers ----
   const findMatchesByName = (name) =>
-  validManagers.filter((m) => m.name && norm(m.name) === norm(name));
+    validManagers.filter((m) => m.name && norm(m.name) === norm(name));
 
   const findCanonicalManager = (name, clubOptional) => {
     const matches = findMatchesByName(name);
     if (matches.length === 0) return null;
     if (matches.length === 1) return matches[0];
     if (!clubOptional) return "AMBIGUOUS";
-    const byClub = matches.find((m) => norm(m.club) === norm(clubOptional));
-    return byClub || null;
+    return matches.find((m) => norm(m.club) === norm(clubOptional)) || null;
   };
 
-  // Login form inputs
-  const [nameInput, setNameInput] = useState("");
-  const [clubInput, setClubInput] = useState("");
-  const [needsClub, setNeedsClub] = useState(false);
-
-  // ---- Tallies (Sheets) ----
   const refreshTallies = async () => {
     try {
       setTalliesLoading(true);
-      const r = await fetch("/api/results");
+      const r = await fetch(`/api/results?season=${selectedSeason}`);
       const j = await r.json();
       if (j?.ok && j?.tallies) setRemoteTallies(j.tallies);
     } catch {
@@ -328,49 +307,60 @@ useEffect(() => {
     }
   };
 
-  // Load tallies when results visible or once closed (and refresh periodically)
   useEffect(() => {
-    if (!(results || votingClosed)) return;
+    if (!(results || rawVotingClosed)) return;
     refreshTallies();
     const id = setInterval(refreshTallies, 15000);
     return () => clearInterval(id);
-  }, [results, votingClosed]);
+  }, [results, rawVotingClosed, selectedSeason]);
 
-  // ---- Categories ----
-  const categories = useMemo(
+const categories = useMemo(
     () => ({
       overall: {
         title: "Overall Manager of the Season",
         icon: Trophy,
         nominees: [
           {
-            id: "andre_guerra",
-            name: "André Guerra",
-            club: "FC Porto",
-            achievement:
-              "Double Winner (D1 + SMFA Shield).",
-            description: "First D1 title at the 26th attempt! Best statistical performance in D1.",
+            id: "james_mackenzie",
+            name: "James Mackenzie",
+            club: "Chelsea",
+            achievement: "Division 1 Champions",
+            description: "Champions again.",
+          },
+          {
+            id: "ash",
+            name: "Ash",
+            club: "Leicester City",
+            achievement: "SMFA Cup + World Club Cup double winners",
+            description: "Delivered a major cup double.",
+          },
+          {
+            id: "heath_brown",
+            name: "Heath Brown",
+            club: "Arsenal",
+            achievement: "Division 2 Champions",
+            description: "Won the Division 2 title.",
           },
           {
             id: "glen_mullan",
             name: "Glen Mullan",
-            club: "RCD Espanyol",
-            achievement: "Youth Cup Winners + D2 Playoff Finalists.",
-            description: "First Youth Cup Final win after five losses.",
+            club: "Espanyol",
+            achievement: "Promotion against the odds + Youth Cup winners",
+            description: "Promoted against expectations and won the Youth Cup.",
           },
           {
-            id: "jibriil_mohamed",
-            name: "Jibriil Mohamed",
-            club: "VfL Wolfsburg",
-            achievement: "D3 Champion.",
-            description: "Best statistical performance in Top 100.",
+            id: "greg_bilbao",
+            name: "Greg Bilbao",
+            club: "West Bromwich Albion",
+            achievement: "Division 3 Champions",
+            description: "Won the Division 3 title.",
           },
           {
-            id: "the_fm",
-            name: "The FM",
-            club: "FC Basel",
-            achievement: "D4 Champion.",
-            description: "Won the division in his first season in Top 100. 2nd best statistical performance in the game world.",
+            id: "tonian_mcgoogan",
+            name: "Tonian Mcgoogan",
+            club: "Valencia",
+            achievement: "Division 5 Champions",
+            description: "Won the Division 5 title.",
           },
         ],
       },
@@ -379,55 +369,52 @@ useEffect(() => {
         icon: Star,
         nominees: [
           {
-            id: "andre_guerra_d1",
-            name: "André Guerra",
-            club: "FC Porto",
-            achievement:
-              "Double Winner (D1 + SMFA Shield)",
-            description: "First D1 title at the 26th attempt! Best statistical performance in D1.",
+            id: "james_mackenzie_d1",
+            name: "James Mackenzie",
+            club: "Chelsea",
+            achievement: "Division 1 Champions",
+            description: "Champions again.",
           },
           {
-            id: "simon_thomas_d1",
-            name: "simon thomas",
-            club: "AC Milan",
-            achievement: "3rd best statistical performance. Charity Shield Winner.",
-            description: "Predicted to be relegated, finished 9th.",
+            id: "chris_meida_d1",
+            name: "Chris Meida",
+            club: "CSKA Moskva",
+            achievement: "D1 survival against the odds",
+            description: "Kept CSKA Moskva in Division 1 against expectations.",
           },
           {
-            id: "doug_earle_d1",
-            name: "Doug Earle",
+            id: "ash_d1",
+            name: "Ash",
             club: "Leicester City",
-            achievement: "World Club Cup Winner.",
-            description: "2nd in D1. 2nd best statistical performance.",
+            achievement: "SMFA Cup + World Club Cup double winners",
+            description: "Delivered a major cup double.",
           },
-         
         ],
       },
       division2: {
         title: "Division 2 Manager of the Season",
         icon: Award,
         nominees: [
-           {
-            id: "fredrik_johansson",
-            name: "Fredrik Johansson",
-            club: "Sporting CP",
-            achievement:
-              "D2 Champion",
-            description: "Won the division in his first season at the club.",
+          {
+            id: "heath_brown_d2",
+            name: "Heath Brown",
+            club: "Arsenal",
+            achievement: "Division 2 Champions",
+            description: "Won the Division 2 title.",
           },
           {
-            id: "chris_meida_d2",
-            name: "Chris Meida",
-            club: "CSKA Moskva",
-            achievement: "Promoted + Youth Cup semi-final.",
-            description: "2nd successive promotion + Youth Cup semi-final after last season's Youth Shield win.",
-          },
-          {
-            id: "glen_mullan",
+            id: "glen_mullan_d2",
             name: "Glen Mullan",
-            club: "RCD Espanyol",
-            achievement: "Youth Cup Winners + D2 Playoff Finalists.",
-            description: "First Youth Cup Final win in fifth final.",
+            club: "Espanyol",
+            achievement: "Promoted against the odds + Youth Cup winners",
+            description: "Secured promotion against expectations and won the Youth Cup.",
+          },
+          {
+            id: "gursimran_brar_d2",
+            name: "Gursimran Brar",
+            club: "Koln",
+            achievement: "Playoff winners",
+            description: "Won the playoffs to secure promotion.",
           },
         ],
       },
@@ -435,20 +422,19 @@ useEffect(() => {
         title: "Division 3 Manager of the Season",
         icon: Award,
         nominees: [
-
           {
-            id: "jibriil_mohamed_d3",
-            name: "Jibriil Mohamed",
-            club: "VfL Wolfsburg",
-            achievement: "D3 Champion",
-            description: "Best statistical performance in Top 100.",
+            id: "greg_bilbao_d3",
+            name: "Greg Bilbao",
+            club: "West Bromwich Albion",
+            achievement: "Division 3 Champions",
+            description: "Won the Division 3 title.",
           },
           {
-            id: "chris_union_d3",
-            name: "Chris Union",
-            club: "Boca Juniors",
-            achievement: "Promoted.",
-            description: "2nd successive promotion.",
+            id: "jerod_ramnarine_d3",
+            name: "Jerod Ramnarine",
+            club: "Galatasaray",
+            achievement: "Playoff winners",
+            description: "Won the playoffs to secure promotion.",
           },
         ],
       },
@@ -457,28 +443,18 @@ useEffect(() => {
         icon: Award,
         nominees: [
           {
-            id: "the_fm",
-            name: "The FM",
-            club: "FC Basel",
-            achievement: "D4 Champion.",
-            description: "Won the division in his first season in Top 100. 2nd best statistical performance in the game world.",
-          },
-
-          {
-            id: "marc_ques_d4",
-            name: "Marc Ques",
-            club: "FK Partizan",
-            achievement: "Promoted",
-            description:
-              "2nd successive promotion.",
+            id: "placeholder_d4_1",
+            name: "TBC",
+            club: "TBC",
+            achievement: "Placeholder",
+            description: "Nomination to be confirmed.",
           },
           {
-            id: "marian_moise_d4",
-            name: "Marian Moise",
-            club: "Newcastle United",
-            achievement: "Promoted.",
-            description:
-              "2nd successive promotion.",
+            id: "placeholder_d4_2",
+            name: "TBC",
+            club: "TBC",
+            achievement: "Placeholder",
+            description: "Nomination to be confirmed.",
           },
         ],
       },
@@ -486,23 +462,19 @@ useEffect(() => {
         title: "Division 5 Manager of the Season",
         icon: Award,
         nominees: [
-
           {
-            id: "alessio_tonato_d5",
-            name: "Alessio Tonato",
-            club: "SSC Napoli",
-            achievement: "D5 Champion.",
-            description:
-              "Won the division in his first season in Top 100. Top scoring team in Top 100.",
+            id: "tonian_mcgoogan_d5",
+            name: "Tonian Mcgoogan",
+            club: "Valencia",
+            achievement: "Division 5 Champions",
+            description: "Won the Division 5 title.",
           },
-
           {
-            id: "gianluca_ghio_d5",
-            name: "Gianluca Ghio",
-            club: "Independiente",
-            achievement: "Promoted.",
-            description:
-              "Independiente's first promotion in 26 seasons.",
+            id: "placeholder_d5_1",
+            name: "TBC",
+            club: "TBC",
+            achievement: "Placeholder",
+            description: "Nomination to be confirmed.",
           },
         ],
       },
@@ -510,60 +482,53 @@ useEffect(() => {
     []
   );
 
-// ---- Login / Logout / Reset ----
   const handleResetAllVotes = async () => {
     if (!isAdmin) return;
     if (!confirm("This will clear ALL local votes (UI only). Proceed?")) return;
+
     setAllVotes({});
     setVoterNames({});
     setVotes({});
     setVotingComplete({});
-    // (Optional) call a /api/reset-votes if you later create one for Sheets.
-    try { await fetch("/api/reset-votes", { method: "POST" }); } catch {}
+
+    try {
+      await fetch("/api/reset-votes", { method: "POST" });
+    } catch {}
   };
 
   const login = (rawName, rawClub) => {
-  setVerificationError("");
+    setVerificationError("");
 
-  const name = (rawName || "").trim();
-  const club = (rawClub || "").trim();
+    const name = (rawName || "").trim();
+    const club = (rawClub || "").trim();
 
-  if (!name) {
-    setVerificationError("Please enter a manager name");
-    return;
-  }
+    if (!name) {
+      setVerificationError("Please enter a manager name");
+      return;
+    }
 
-  // Resolve canonical manager first
-  const match = findCanonicalManager(name, club || undefined);
+    const match = findCanonicalManager(name, club || undefined);
 
-  if (match === "AMBIGUOUS") {
-    setNeedsClub(true);
-    setVerificationError("Multiple managers share this name — please pick the correct club.");
-    return;
-  }
+    if (match === "AMBIGUOUS") {
+      setNeedsClub(true);
+      setVerificationError("Multiple managers share this name — please pick the correct club.");
+      return;
+    }
 
-  if (!match) {
-    setVerificationError(`"${name}" is not found in the active Top 100 manager database.`);
-    return;
-  }
+    if (!match) {
+      setVerificationError(`"${name}" is not found in the active Top 100 manager database.`);
+      return;
+    }
 
-  // Admin check based on canonical name (normalized)
-  const admin = isAdminName(match.name);
+    const admin = isAdminName(match.name);
 
-  // Closed gate applies ONLY after we know admin status
-  if (rawVotingClosed && !ADMIN_USERS.includes(name)) {
-    const d = new Date(votingDeadline);
-    setVerificationError(
-      `Voting closed on ${d.toLocaleDateString()}. Contact admin if you need assistance.`
-    );
-    return;
-  }
+    setCurrentManager(match.name);
+    setCurrentClub(match.club || "");
+    setIsLoggedIn(true);
+    setIsAdmin(admin);
 
-  setCurrentManager(match.name);
-  setCurrentClub(match.club || "");
-  setIsLoggedIn(true);
-  setIsAdmin(admin);
-};
+    if (rawVotingClosed) setResults(true);
+  };
 
   const logout = () => {
     setIsLoggedIn(false);
@@ -579,11 +544,10 @@ useEffect(() => {
     setNeedsClub(false);
   };
 
-  // ---- Voting ----
   const submitVote = (category, nomineeId) => {
     if (!isLoggedIn || !currentManager) return;
+    if (rawVotingClosed && !isAdmin) return;
 
-    // Local UI state (allow re-vote by same manager: overwrite)
     setVotes((prev) => ({ ...prev, [category]: nomineeId }));
     setVotingComplete((prev) => ({ ...prev, [category]: true }));
 
@@ -592,28 +556,28 @@ useEffect(() => {
       [currentManager]: { ...(prev[currentManager] || {}), [category]: nomineeId },
     }));
 
-    // Track voter names per nominee (update lists for the *current* choice in UI)
     setVoterNames((prev) => {
       const next = { ...prev };
-      // Remove my previous selection in this category, if any
       const prevChoice = votes[category];
+
       if (prevChoice) {
         const kOld = `${category}_${prevChoice}`;
         next[kOld] = (next[kOld] || []).filter((v) => v.name !== currentManager);
       }
-      // Add to new choice
+
       const kNew = `${category}_${nomineeId}`;
       next[kNew] = [
         ...(next[kNew] || []),
         { name: currentManager, timestamp: new Date().toISOString() },
       ];
+
       return next;
     });
 
-    // Persist to backend (Sheets)
     try {
       const nomineeObj = categories[category]?.nominees?.find((n) => n.id === nomineeId);
       const nomineeName = nomineeObj ? nomineeObj.name : nomineeId;
+
       fetch("/api/submit-vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -624,7 +588,9 @@ useEffect(() => {
           nomineeName,
           season: selectedSeason,
         }),
-      }).catch(() => {});
+      })
+        .then(() => refreshTallies())
+        .catch(() => {});
     } catch {}
   };
 
@@ -646,15 +612,12 @@ useEffect(() => {
       }
       return next;
     });
-
-    // (Optional) call backend to revoke a vote if you add that later.
   };
 
-  // ---- Counts (prefer Sheets tallies; fallback to local) ----
   const getVoteCount = (category, nomineeId) => {
     const rt = remoteTallies?.[category]?.[nomineeId]?.votes;
     if (typeof rt === "number") return rt;
-    // Fallback local
+
     let count = 0;
     Object.values(allVotes).forEach((mv) => {
       if (mv[category] === nomineeId) count++;
@@ -672,7 +635,6 @@ useEffect(() => {
     return Object.values(allVotes).filter((mv) => mv[category]).length;
   };
 
-  // ---- Export (JSON dump of current view) ----
   const exportResults = () => {
     const out = {};
     Object.keys(categories).forEach((category) => {
@@ -683,6 +645,7 @@ useEffect(() => {
         out[category][nominee.name] = { votes: voteCount, voters };
       });
     });
+
     const dataStr = JSON.stringify(out, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -693,11 +656,13 @@ useEffect(() => {
     URL.revokeObjectURL(url);
   };
 
-  // ---- Time remaining ----
   const getTimeRemaining = () => {
-    const now = new Date();
-    const deadline = new Date(votingDeadline);
-    const diff = deadline.getTime() - now.getTime();
+    if (!isValidDeadline) return "Deadline not set";
+
+    const now = Date.now();
+    const deadline = Date.parse(votingDeadline);
+    const diff = deadline - now;
+
     if (diff <= 0) return "Voting Closed";
 
     const MIN = 1000 * 60;
@@ -711,9 +676,7 @@ useEffect(() => {
     return `${days}d ${hours}h ${minutes}m remaining`;
   };
 
-  // ---- UI ----
-  if (!isLoggedIn) {
-    // ---------- LOGIN VIEW ----------
+if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900 flex items-center justify-center p-4">
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 max-w-md w-full border border-white/20">
@@ -722,14 +685,9 @@ useEffect(() => {
             <h1 className="text-2xl font-bold text-white mb-2">{selectedSeason}</h1>
             <h2 className="text-lg text-gray-200">Manager of the Season Voting</h2>
 
-            <div className="mt-2 text-sm text-yellow-300 flex items-center gap-2">
+            <div className="mt-2 text-sm text-yellow-300 flex items-center justify-center gap-2">
               <Calendar className="w-4 h-4 inline" />
               {getTimeRemaining()}
-
-
-
-
-    
             </div>
           </div>
 
@@ -749,9 +707,7 @@ useEffect(() => {
                 placeholder="e.g., Jay Jones"
                 className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    login(nameInput, clubInput);
-                  }
+                  if (e.key === "Enter") login(nameInput, clubInput);
                 }}
               />
             </div>
@@ -768,9 +724,7 @@ useEffect(() => {
                   placeholder="e.g., AS Monaco"
                   className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      login(nameInput, clubInput);
-                    }
+                    if (e.key === "Enter") login(nameInput, clubInput);
                   }}
                 />
                 <datalist id="clubs-for-name">
@@ -811,17 +765,15 @@ useEffect(() => {
     );
   }
 
-// ---------- LOGGED-IN VIEW ----------
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-green-900">
-      {/* Header */}
       <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Trophy className="w-8 h-8 text-yellow-400" />
               <div>
-                <h1 className="text-xl font-bold text-white">Season 26 Manager Awards</h1>
+                <h1 className="text-xl font-bold text-white">Season 27 Manager Awards</h1>
                 <p className="text-sm text-gray-300">
                   Voting as: {currentManager}
                   {currentClub ? ` (${currentClub})` : ""}
@@ -830,57 +782,55 @@ useEffect(() => {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap justify-end">
-              {/* Deadline / edit (admin) */}
               <div className="text-sm text-yellow-300 flex items-center gap-2">
                 <Calendar className="w-4 h-4 inline" />
                 {getTimeRemaining()}
 
-{isAdmin && votingDeadline && (
-  !isEditingDeadline ? (
-    <button
-      onClick={() => setIsEditingDeadline(true)}
-      className="ml-2 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-    >
-      Edit deadline
-    </button>
-  ) : (
-    <>
-      <input
-        type="datetime-local"
-        value={utcIsoToLondonInputValue(votingDeadline)}
-        onChange={(e) => {
-          const utc = londonInputValueToUtcIso(e.target.value);
-          if (utc) setVotingDeadline(utc);
-        }}
-        className="ml-2 bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
-      />
+                {isAdmin && (
+                  !isEditingDeadline ? (
+                    <button
+                      onClick={() => setIsEditingDeadline(true)}
+                      className="ml-2 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white"
+                    >
+                      Edit deadline
+                    </button>
+                  ) : (
+                    <>
+                      <input
+                        type="datetime-local"
+                        value={isValidDeadline ? utcIsoToLondonInputValue(votingDeadline) : ""}
+                        onChange={(e) => {
+                          const utc = londonInputValueToUtcIso(e.target.value);
+                          if (utc) setVotingDeadline(utc);
+                        }}
+                        className="ml-2 bg-black/30 border border-white/20 rounded px-2 py-1 text-white"
+                      />
 
-      <button
-        onClick={async () => {
-  setIsEditingDeadline(false);
+                      <button
+                        onClick={async () => {
+                          setIsEditingDeadline(false);
 
-  try {
-    await fetch("/api/deadline", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "x-admin-token": import.meta.env.VITE_ADMIN_TOKEN,
-  },
-  body: JSON.stringify({ deadline: votingDeadline }),
-});
-  } catch {}
-}}
-        className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
-      >
-        Done
-      </button>
-    </>
-  )
-)}
+                          try {
+                            await fetch("/api/deadline", {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                "x-admin-token": import.meta.env.VITE_ADMIN_TOKEN,
+                              },
+                              body: JSON.stringify({ deadline: votingDeadline }),
+                            });
+                          } catch {}
+                        }}
+                        className="px-2 py-1 rounded bg-green-500/30 hover:bg-green-500/40 text-green-100"
+                      >
+                        Done
+                      </button>
+                    </>
+                  )
+                )}
               </div>
 
-              {/* Results toggle or closed banner */}
-              {!votingClosed ? (
+              {!rawVotingClosed ? (
                 <button
                   onClick={() => setResults((s) => !s)}
                   className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -895,12 +845,11 @@ useEffect(() => {
                 </span>
               )}
 
-              {(results || votingClosed) && (
+              {(results || rawVotingClosed) && (
                 <span className="text-xs text-gray-300">
                   {talliesLoading ? "Syncing…" : "From Google Sheets"}
                 </span>
               )}
-
 
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
@@ -920,7 +869,7 @@ useEffect(() => {
                   <button
                     onClick={handleResetAllVotes}
                     className="bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg transition-colors"
-                    title="Reset local UI votes (does not clear Google Sheet)"
+                    title="Reset local UI votes"
                   >
                     Reset
                   </button>
@@ -943,13 +892,12 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Body */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Category Navigation */}
         <div className="flex flex-wrap gap-2 mb-6">
           {Object.entries(categories).map(([key, category]) => {
             const Icon = category.icon;
             const isComplete = !!votingComplete[key];
+
             return (
               <button
                 key={key}
@@ -968,7 +916,6 @@ useEffect(() => {
           })}
         </div>
 
-        {/* Current Category */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
           <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
             <div className="flex items-center gap-3">
@@ -979,6 +926,7 @@ useEffect(() => {
                 {categories[activeCategory].title}
               </h2>
             </div>
+
             {votingComplete[activeCategory] && (
               <div className="mt-2 flex items-center gap-2 text-green-400">
                 <CheckCircle className="w-4 h-4" />
@@ -996,7 +944,7 @@ useEffect(() => {
                 const percentage =
                   totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
 
-                const disabled = votingClosed && !isAdmin; // still let admins toggle results separately
+                const disabled = rawVotingClosed && !isAdmin;
 
                 return (
                   <div
@@ -1006,9 +954,7 @@ useEffect(() => {
                         ? "border-green-400 bg-green-500/20"
                         : "border-white/20 hover:border-white/40"
                     } ${disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:bg-white/10"}`}
-                    onClick={() =>
-                      !disabled && submitVote(activeCategory, nominee.id)
-                    }
+                    onClick={() => !disabled && submitVote(activeCategory, nominee.id)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
@@ -1027,7 +973,7 @@ useEffect(() => {
                       <p className="text-gray-300 text-sm">{nominee.description}</p>
                     </div>
 
-                    {(results || votingClosed) && (
+                    {(results || rawVotingClosed) && (
                       <div className="mt-3 pt-3 border-t border-white/10">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-300">{voteCount} votes</span>
