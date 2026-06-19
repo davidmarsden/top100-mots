@@ -315,172 +315,233 @@ export default function VotingApp() {
   }, [results, rawVotingClosed, selectedSeason]);
 
 const categories = useMemo(
-    () => ({
-      overall: {
-        title: "Overall Manager of the Season",
-        icon: Trophy,
-        nominees: [
-          {
-            id: "james_mackenzie",
-            name: "James Mackenzie",
-            club: "Chelsea",
-            achievement: "Division 1 Champions",
-            description: "Champions again.",
-          },
-          {
-            id: "ash",
-            name: "Ash",
-            club: "Leicester City",
-            achievement: "SMFA Cup + World Club Cup double winners",
-            description: "Delivered a major cup double.",
-          },
-          {
-            id: "heath_brown",
-            name: "Heath Brown",
-            club: "Arsenal",
-            achievement: "Division 2 Champions",
-            description: "Won the Division 2 title.",
-          },
-          {
-            id: "glen_mullan",
-            name: "Glen Mullan",
-            club: "Espanyol",
-            achievement: "Promotion against the odds + Youth Cup winners",
-            description: "Promoted against expectations and won the Youth Cup.",
-          },
-          {
-            id: "greg_bilbao",
-            name: "Greg Bilbao",
-            club: "West Bromwich Albion",
-            achievement: "Division 3 Champions",
-            description: "Won the Division 3 title.",
-          },
-          {
-            id: "tonian_mcgoogan",
-            name: "Tonian Mcgoogan",
-            club: "Valencia",
-            achievement: "Division 5 Champions",
-            description: "Won the Division 5 title.",
-          },
-        ],
-      },
-      division1: {
-        title: "Division 1 Manager of the Season",
-        icon: Star,
-        nominees: [
-          {
-            id: "james_mackenzie_d1",
-            name: "James Mackenzie",
-            club: "Chelsea",
-            achievement: "Division 1 Champions",
-            description: "Champions again.",
-          },
-          {
-            id: "chris_meida_d1",
-            name: "Chris Meida",
-            club: "CSKA Moskva",
-            achievement: "D1 survival against the odds",
-            description: "Kept CSKA Moskva in Division 1 against expectations.",
-          },
-          {
-            id: "ash_d1",
-            name: "Ash",
-            club: "Leicester City",
-            achievement: "SMFA Cup + World Club Cup double winners",
-            description: "Delivered a major cup double.",
-          },
-        ],
-      },
-      division2: {
-        title: "Division 2 Manager of the Season",
-        icon: Award,
-        nominees: [
-          {
-            id: "heath_brown_d2",
-            name: "Heath Brown",
-            club: "Arsenal",
-            achievement: "Division 2 Champions",
-            description: "Won the Division 2 title.",
-          },
-          {
-            id: "glen_mullan_d2",
-            name: "Glen Mullan",
-            club: "Espanyol",
-            achievement: "Promoted against the odds + Youth Cup winners",
-            description: "Secured promotion against expectations and won the Youth Cup.",
-          },
-          {
-            id: "gursimran_brar_d2",
-            name: "Gursimran Brar",
-            club: "Koln",
-            achievement: "Playoff winners",
-            description: "Won the playoffs to secure promotion.",
-          },
-        ],
-      },
-      division3: {
-        title: "Division 3 Manager of the Season",
-        icon: Award,
-        nominees: [
-          {
-            id: "greg_bilbao_d3",
-            name: "Greg Bilbao",
-            club: "West Bromwich Albion",
-            achievement: "Division 3 Champions",
-            description: "Won the Division 3 title.",
-          },
-          {
-            id: "jerod_ramnarine_d3",
-            name: "Jerod Ramnarine",
-            club: "Galatasaray",
-            achievement: "Playoff winners",
-            description: "Won the playoffs to secure promotion.",
-          },
-        ],
-      },
-      division4: {
-        title: "Division 4 Manager of the Season",
-        icon: Award,
-        nominees: [
-          {
-            id: "placeholder_d4_1",
-            name: "TBC",
-            club: "TBC",
-            achievement: "Placeholder",
-            description: "Nomination to be confirmed.",
-          },
-          {
-            id: "placeholder_d4_2",
-            name: "TBC",
-            club: "TBC",
-            achievement: "Placeholder",
-            description: "Nomination to be confirmed.",
-          },
-        ],
-      },
-      division5: {
-        title: "Division 5 Manager of the Season",
-        icon: Award,
-        nominees: [
-          {
-            id: "tonian_mcgoogan_d5",
-            name: "Tonian Mcgoogan",
-            club: "Valencia",
-            achievement: "Division 5 Champions",
-            description: "Won the Division 5 title.",
-          },
-          {
-            id: "placeholder_d5_1",
-            name: "TBC",
-            club: "TBC",
-            achievement: "Placeholder",
-            description: "Nomination to be confirmed.",
-          },
-        ],
-      },
-    }),
-    []
-  );
+  () => ({
+    overall: {
+      title: "Overall Manager of the Season",
+      icon: Trophy,
+      nominees: [
+        {
+          id: "james_mckenzie",
+          name: "James Mckenzie",
+          club: "Chelsea",
+          achievement: "Division 1 Champions",
+          description:
+            "Won a sixth D1 title, his first since S21. Now only two behind Scott Mckenzie’s record of eight.",
+        },
+        {
+          id: "ash_l",
+          name: "Ash L",
+          club: "Leicester City",
+          achievement: "SMFA Cup + World Club Cup double winners",
+          description:
+            "Finished 3rd in D1 after Leicester’s best-ever 2nd place last season, and added a major cup double.",
+        },
+        {
+          id: "glen_mullan",
+          name: "Glen Mullan",
+          club: "RCD Espanyol",
+          achievement: "Promoted + Youth Cup winners",
+          description:
+            "Predicted to be relegated, but won promotion and secured a second successive Youth Cup.",
+        },
+        {
+          id: "chris_meida",
+          name: "Chris Meida",
+          club: "CSKA Moskva",
+          achievement: "D1 survival against the odds",
+          description:
+            "Kept CSKA in Division 1 after two successive promotions.",
+        },
+        {
+          id: "alessandro_ioli",
+          name: "Alessandro Ioli",
+          club: "Ajax",
+          achievement: "D4 Champions + PVA leader",
+          description:
+            "Won Division 4 and topped the Positional Value Added table.",
+        },
+        {
+          id: "marc_ques",
+          name: "Marc Ques",
+          club: "Rubin Kazan",
+          achievement: "Playoff winners",
+          description:
+            "Completed a remarkable third successive promotion.",
+        },
+      ],
+    },
+
+    division1: {
+      title: "Division 1 Manager of the Season",
+      icon: Star,
+      reviewUrl:
+        "https://smtop100.blog/2026/06/13/season-27-division-1-stats-and-facts-review/",
+      nominees: [
+        {
+          id: "james_mckenzie_d1",
+          name: "James Mckenzie",
+          club: "Chelsea",
+          achievement: "Division 1 Champions",
+          description:
+            "Champions again. His sixth D1 title, and first since S21.",
+        },
+        {
+          id: "chris_meida_d1",
+          name: "Chris Meida",
+          club: "CSKA Moskva",
+          achievement: "D1 survival against the odds",
+          description:
+            "Kept CSKA in D1 after two successive promotions.",
+        },
+        {
+          id: "ash_l_d1",
+          name: "Ash L",
+          club: "Leicester City",
+          achievement: "SMFA Cup + World Club Cup double winners",
+          description:
+            "Also finished 3rd in D1 after Leicester’s best-ever 2nd place last season under Doug Earle.",
+        },
+        {
+          id: "bojan_h_d1",
+          name: "Bojan H",
+          club: "Bayern München",
+          achievement: "Cup winners",
+          description:
+            "Won his third Cup, and his first since S17.",
+        },
+      ],
+    },
+
+    division2: {
+      title: "Division 2 Manager of the Season",
+      icon: Award,
+      reviewUrl:
+        "https://smtop100.blog/2026/06/13/season-27-division-2-stats-and-facts-review/",
+      nominees: [
+        {
+          id: "heath_brown_d2",
+          name: "Heath Brown",
+          club: "Arsenal",
+          achievement: "Division 2 Champions",
+          description: "Led Arsenal to the D2 title.",
+        },
+        {
+          id: "glen_mullan_d2",
+          name: "Glen Mullan",
+          club: "RCD Espanyol",
+          achievement: "Promoted + Youth Cup winners",
+          description:
+            "Predicted to be relegated, but won promotion and a second successive Youth Cup.",
+        },
+        {
+          id: "gursimran_brar_d2",
+          name: "Gursimran Brar",
+          club: "1. FC Köln",
+          achievement: "Playoff winners",
+          description: "Won the playoffs to secure promotion.",
+        },
+        {
+          id: "andrew_kelly_d2",
+          name: "Andrew Kelly",
+          club: "Stoke City",
+          achievement: "Playoff finalists + Shield winners",
+          description:
+            "Reached the playoff final and added Shield success.",
+        },
+      ],
+    },
+
+    division3: {
+      title: "Division 3 Manager of the Season",
+      icon: Award,
+      reviewUrl:
+        "https://smtop100.blog/2026/06/14/season-27-division-3-stats-and-facts-review/",
+      nominees: [
+        {
+          id: "greg_bilboa_d3",
+          name: "⍟Greg Bilboaツ",
+          club: "West Bromwich Albion",
+          achievement: "Division 3 Champions",
+          description: "Won the D3 title and secured automatic promotion.",
+        },
+        {
+          id: "jerod_ramnarine_d3",
+          name: "Jerod Ramnarine",
+          club: "Galatasaray SK",
+          achievement: "Playoff winners + PVA leader",
+          description:
+            "Predicted to be relegated, but won promotion and topped the Positional Value Added table.",
+        },
+      ],
+    },
+
+    division4: {
+      title: "Division 4 Manager of the Season",
+      icon: Award,
+      reviewUrl:
+        "https://smtop100.blog/2026/06/14/season-27-division-4-stats-and-facts-review/",
+      nominees: [
+        {
+          id: "alessandro_ioli_d4",
+          name: "Alessandro Ioli",
+          club: "Ajax",
+          achievement: "Division 4 Champions + PVA leader",
+          description:
+            "Won the D4 title and topped the Positional Value Added table.",
+        },
+        {
+          id: "jay_jones_d4",
+          name: "Jay Jones",
+          club: "AS Monaco",
+          achievement: "Playoff winners",
+          description:
+            "Won his fourth playoff final.",
+        },
+        {
+          id: "bruno_neto_d4",
+          name: "Bruno Neto^^",
+          club: "Olympique Lyonnais",
+          achievement: "Predicted relegation, finished 8th",
+          description:
+            "One of the biggest overachievement stories of the season.",
+        },
+      ],
+    },
+
+    division5: {
+      title: "Division 5 Manager of the Season",
+      icon: Award,
+      reviewUrl:
+        "https://smtop100.blog/2026/06/15/season-27-division-5-stats-and-facts-review/",
+      nominees: [
+        {
+          id: "tonian_mcgoogan_d5",
+          name: "Tonian McGoogan",
+          club: "Valencia CF",
+          achievement: "Division 5 Champions",
+          description: "Led Valencia to the D5 title.",
+        },
+        {
+          id: "wayne_bullough_d5",
+          name: "Wayne Bullough",
+          club: "Athletic Club",
+          achievement: "Runners-up + PVA leader",
+          description:
+            "Finished second and topped the Positional Value Added table.",
+        },
+        {
+          id: "marc_ques_d5",
+          name: "Marc Ques",
+          club: "Rubin Kazan",
+          achievement: "Playoff winners",
+          description:
+            "Completed a remarkable third successive promotion.",
+        },
+      ],
+    },
+  }),
+  []
+);
 
   const handleResetAllVotes = async () => {
     if (!isAdmin) return;
