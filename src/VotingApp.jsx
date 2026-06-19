@@ -979,14 +979,28 @@ if (!isLoggedIn) {
 
         <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
           <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              {React.createElement(categories[activeCategory].icon, {
-                className: "w-6 h-6 text-yellow-400",
-              })}
-              <h2 className="text-2xl font-bold text-white">
-                {categories[activeCategory].title}
-              </h2>
-            </div>
+            <div className="flex items-start gap-3">
+  {React.createElement(categories[activeCategory].icon, {
+    className: "w-6 h-6 text-yellow-400 mt-1",
+  })}
+
+  <div>
+    <h2 className="text-2xl font-bold text-white">
+      {categories[activeCategory].title}
+    </h2>
+
+    {categories[activeCategory].reviewUrl && (
+      <a
+        href={categories[activeCategory].reviewUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-yellow-300 underline hover:text-yellow-200"
+      >
+        View stats, facts & PVA table
+      </a>
+    )}
+  </div>
+</div>
 
             {votingComplete[activeCategory] && (
               <div className="mt-2 flex items-center gap-2 text-green-400">
