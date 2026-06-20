@@ -283,6 +283,15 @@ export default function VotingApp() {
     };
   }, [fallbackManagers]);
 
+const norm = (value = "") =>
+  value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[“”"‘’']/g, "")
+    .replace(/[.,]/g, "")
+    .replace(/\s+/g, " ");
+
   const findMatchesByName = (name) =>
     validManagers.filter((m) => m.name && norm(m.name) === norm(name));
 
