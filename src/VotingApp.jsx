@@ -1024,15 +1024,16 @@ if (!isLoggedIn) {
               {categories[activeCategory].nominees.map((nominee) => {
   const isVoted = votes[activeCategory] === nominee.id;
 
-  const categoryNominees = categories[activeCategory].nominees;
+const voteCount = getVoteCount(activeCategory, nominee.id);
+const totalVotes = getTotalVotes(activeCategory);
+const percentage =
+  totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
 
-  const maxVotes = Math.max(
-    ...categoryNominees.map(
-      (n) => results?.[activeCategory]?.[n.id]?.votes || 0
-    )
-  );
+const categoryNominees = categories[activeCategory].nominees;
+const maxVotes = Math.max(
+  ...categoryNominees.map((n) => getVoteCount(activeCategory, n.id))
+);
 
-  const voteCount = getVoteCount(activeCategory, nominee.id);
 const isWinner =
   (results || rawVotingClosed) && voteCount > 0 && voteCount === maxVotes;
 
@@ -1056,7 +1057,7 @@ const totalVotes = getTotalVotes(activeCategory);
 >
                     <div className="flex items-start justify-between mb-3">
   {isWinner && (
-  <div className="absolute -top-2 -right-2 rotate-6 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-orange-500 px-4 py-1 text-xs font-black text-black shadow-xl border border-yellow-200">
+  <div className="absolute -top-2 -right-2 z-20 rotate-6 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-orange-500 px-4 py-1 text-xs font-black text-black shadow-xl border border-yellow-200">
     🏆 WINNER
   </div>
 )}
