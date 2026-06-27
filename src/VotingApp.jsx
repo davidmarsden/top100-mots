@@ -1021,44 +1021,86 @@ if (!isLoggedIn) {
 
           <div className="p-6">
             <div className="grid gap-4 md:grid-cols-2">
-              {categories[activeCategory].nominees.map((nominee) => {
-  
+              {categories[activeCategory].nominees
+  .map((nominee) => {
+    const voteCount = getVoteCount(activeCategory, nominee.id);
 
-const isVoted = votes[activeCategory] === nominee.id;
+    return {
+      ...nominee,
+      voteCount,
+    };
+  })
+  .sort((a, b) => {
+    if (!(results || rawVotingClosed)) return 0;
+    return b.voteCount - a.voteCount;
+  })
+  .map((nominee) => {
+    const isVoted = votes[activeCategory] === nominee.id;
 
-const voteCount = getVoteCount(activeCategory, nominee.id);
-const totalVotes = getTotalVotes(activeCategory);
-const percentage =
-  totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
+    const voteCount = nominee.voteCount;
+    const totalVotes = getTotalVotes(activeCategory);
+    const percentage =
+      totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
 
-const categoryNominees = categories[activeCategory].nominees;
-const maxVotes = Math.max(
-  ...categoryNominees.map((n) => getVoteCount(activeCategory, n.id))
-);
+    const sortedNominees = [...categories[activeCategory].nominees]
+      .map((n) => ({
+        ...n,
+        voteCount: getVoteCount(activeCategory, n.id),
+      }))
+      .sort((a, b) => b.voteCount - a.voteCount);
 
-const isWinner =
-  (results || rawVotingClosed) && voteCount > 0 && voteCount === maxVotes;
+    const rank =
+      (results || rawVotingClosed) && voteCount > 0
+        ? sortedNominees.findIndex((n) => n.id === nominee.id) + 1
+        : null;
 
-                const disabled = rawVotingClosed && !isAdmin;
+    const isWinner = rank === 1;
+    const isRunnerUp = rank === 2;
+    const isThird = rank === 3;
+    const isOverall = activeCategory === "overall";
 
-                return (
+    const disabled = rawVotingClosed && !isAdmin;
+
+    return (
                   <div
   key={nominee.id}
   className={`relative bg-white/5 border rounded-lg p-4 transition-all ${
     isWinner
-      ? "border-yellow-300 bg-yellow-500/10 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
+      ? isOverall
+        ? "border-yellow-300 bg-yellow-500/10 shadow-[0_0_34px_rgba(250,204,21,0.45)] animate-[championGlow_4s_ease-in-out_infinite]"
+        : "border-yellow-300 bg-yellow-500/10 shadow-[0_0_24px_rgba(250,204,21,0.35)] animate-[championGlow_4s_ease-in-out_infinite]"
+      : isRunnerUp
+      ? "border-slate-300/80 bg-slate-300/10 shadow-[0_0_18px_rgba(203,213,225,0.22)]"
+      : isThird
+      ? "border-orange-300/70 bg-orange-500/10 shadow-[0_0_18px_rgba(251,146,60,0.2)]"
       : isVoted
       ? "border-green-400 bg-green-500/20"
       : "border-white/20 hover:border-white/40"
   } ${disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:bg-white/10"}`}
   onClick={() => !disabled && submitVote(activeCategory, nominee.id)}
 >
-                    <div className="flex items-start justify-between mb-3">
   {isWinner && (
-  <div className="absolute -top-2 -right-2 z-20 rotate-6 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-orange-500 px-4 py-1 text-xs font-black text-black shadow-xl border border-yellow-200">
-    🏆 WINNER
-  </div>
-)}
+    <div className="absolute -top-2 -right-2 z-20 rotate-6 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-orange-500 px-4 py-1 text-xs font-black text-black shadow-xl border border-yellow-200">
+      {isOverall ? "👑 MANAGER OF THE SEASON" : "🏆 WINNER"}
+    </div>
+  )}
+
+  {isRunnerUp && (
+    <div className="absolute -top-2 -right-2 z-20 rotate-6 rounded-full bg-gradient-to-r from-slate-200 via-slate-300 to-slate-400 px-4 py-1 text-xs font-black text-black shadow-xl border border-slate-100">
+      🥈 RUNNER-UP
+    </div>
+  )}
+
+  {isThird && (
+    <div className="absolute -top-2 -right-2 z-20 rotate-6 rounded-full bg-gradient-to-r from-orange-300 via-amber-500 to-orange-600 px-4 py-1 text-xs font-black text-black shadow-xl border border-orange-200">
+      🥉 THIRD
+    </div>
+  )}
+
+                    <div className="flex items-start justify-between mb-3">
+
+
+
                       <div>
                         <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
                         <p className="text-yellow-400 font-medium">{nominee.club}</p>
