@@ -1068,7 +1068,7 @@ if (!isLoggedIn) {
     isWinner
       ? isOverall
         ? "border-yellow-300 bg-yellow-500/10 shadow-[0_0_34px_rgba(250,204,21,0.45)] animate-[championGlow_4s_ease-in-out_infinite]"
-        : "border-yellow-300 bg-yellow-500/10 shadow-[0_0_24px_rgba(250,204,21,0.35)] animate-[championGlow_4s_ease-in-out_infinite]"
+        : "border-yellow-300 bg-yellow-500/10 shadow-[0_0_24px_rgba(250,204,21,0.35)] champion-glow"
       : isRunnerUp
       ? "border-slate-300/80 bg-slate-300/10 shadow-[0_0_18px_rgba(203,213,225,0.22)]"
       : isThird
