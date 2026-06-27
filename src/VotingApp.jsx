@@ -1062,7 +1062,7 @@ if (!isLoggedIn) {
     </div>
   )}
 
-{awardsView === "hall" && hallData && (
+
 {awardsView === "current" && (
   <>
   <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
