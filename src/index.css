@@ -1,6 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@keyframes championGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgba(250, 204, 21, 0.25);
+  }
+
+  50% {
+    box-shadow: 0 0 38px rgba(250, 204, 21, 0.5);
+  }
+}
 
 /* Optional: small defaults that make forms look nicer */
 input, button, textarea, select {
