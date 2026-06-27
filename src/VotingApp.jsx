@@ -1469,12 +1469,13 @@ if (!isLoggedIn) {
                     )}
                   </div>
                 );
-                            })}
+                                          })}
             </div>
           </div>
         </div>
       </>
     )}
   </div>
+</div>
 );
 }
