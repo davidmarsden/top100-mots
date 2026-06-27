@@ -5,11 +5,17 @@
   0%,
   100% {
     box-shadow: 0 0 18px rgba(250, 204, 21, 0.25);
+    transform: scale(1);
   }
 
   50% {
     box-shadow: 0 0 38px rgba(250, 204, 21, 0.5);
+    transform: scale(1.01);
   }
+}
+
+.champion-glow {
+  animation: championGlow 4s ease-in-out infinite;
 }
 
 /* Optional: small defaults that make forms look nicer */
