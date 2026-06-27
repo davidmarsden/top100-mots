@@ -208,6 +208,10 @@ export default function VotingApp() {
   const [allVotes, setAllVotes] = useState({});
   const [voterNames, setVoterNames] = useState({});
 
+const [awardsView, setAwardsView] = useState("current");
+const [hallData, setHallData] = useState(null);
+const [selectedManager, setSelectedManager] = useState("");
+
   const fallbackManagers = useMemo(
     () =>
       FALLBACK_ACTIVE_MANAGER_NAMES.filter(Boolean).map((n) => ({
@@ -705,6 +709,19 @@ const categories = useMemo(
     return Object.values(allVotes).filter((mv) => mv[category]).length;
   };
 
+const loadHallOfFame = async () => {
+  try {
+    const res = await fetch("/api/hall-of-fame");
+    const data = await res.json();
+
+    if (data.ok) {
+      setHallData(data);
+    }
+  } catch (e) {
+    console.error("Failed to load Hall of Fame", e);
+  }
+};
+
   const exportResults = () => {
     const out = {};
     Object.keys(categories).forEach((category) => {
@@ -921,6 +938,63 @@ if (!isLoggedIn) {
                 </span>
               )}
 
+
+
+<div className="flex flex-wrap gap-2 mt-4">
+  <button
+    onClick={() => setAwardsView("current")}
+    className={`px-4 py-2 rounded-lg font-bold ${
+      awardsView === "current"
+        ? "bg-yellow-500 text-black"
+        : "bg-white/10 text-white hover:bg-white/20"
+    }`}
+  >
+    🗳 Current Awards
+  </button>
+
+  <button
+    onClick={() => {
+      setAwardsView("hall");
+      if (!hallData) loadHallOfFame();
+    }}
+    className={`px-4 py-2 rounded-lg font-bold ${
+      awardsView === "hall"
+        ? "bg-yellow-500 text-black"
+        : "bg-white/10 text-white hover:bg-white/20"
+    }`}
+  >
+    🏛 Hall of Fame
+  </button>
+
+  <button
+    onClick={() => {
+      setAwardsView("managers");
+      if (!hallData) loadHallOfFame();
+    }}
+    className={`px-4 py-2 rounded-lg font-bold ${
+      awardsView === "managers"
+        ? "bg-yellow-500 text-black"
+        : "bg-white/10 text-white hover:bg-white/20"
+    }`}
+  >
+    👤 Manager Cabinets
+  </button>
+
+  <button
+    onClick={() => {
+      setAwardsView("records");
+      if (!hallData) loadHallOfFame();
+    }}
+    className={`px-4 py-2 rounded-lg font-bold ${
+      awardsView === "records"
+        ? "bg-yellow-500 text-black"
+        : "bg-white/10 text-white hover:bg-white/20"
+    }`}
+  >
+    📊 Records
+  </button>
+</div>
+
               <div className="text-sm text-gray-300">
                 <Users className="w-4 h-4 inline mr-1" />
                 {Object.keys(allVotes).length} managers voted
@@ -963,30 +1037,250 @@ if (!isLoggedIn) {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="flex flex-wrap gap-2 mb-6">
-          {Object.entries(categories).map(([key, category]) => {
-            const Icon = category.icon;
-            const isComplete = !!votingComplete[key];
+  {awardsView === "current" && (
+    <div className="flex flex-wrap gap-2 mb-6">
+      {Object.entries(categories).map(([key, category]) => {
+        const Icon = category.icon;
+        const isComplete = !!votingComplete[key];
 
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveCategory(key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                  activeCategory === key
-                    ? "bg-yellow-500 text-black"
-                    : "bg-white/10 text-white hover:bg-white/20"
-                } ${isComplete ? "ring-2 ring-green-400" : ""}`}
-              >
-                <Icon className="w-4 h-4" />
-                {category.title}
-                {isComplete && <CheckCircle className="w-4 h-4 text-green-400" />}
-              </button>
-            );
-          })}
+        return (
+          <button
+            key={key}
+            onClick={() => setActiveCategory(key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              activeCategory === key
+                ? "bg-yellow-500 text-black"
+                : "bg-white/10 text-white hover:bg-white/20"
+            } ${isComplete ? "ring-2 ring-green-400" : ""}`}
+          >
+            <Icon className="w-4 h-4" />
+            {category.title}
+            {isComplete && <CheckCircle className="w-4 h-4 text-green-400" />}
+          </button>
+        );
+      })}
+    </div>
+  )}
+
+{awardsView === "hall" && hallData && (
+{awardsView === "current" && (
+  <>
+  <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+    <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
+      <h2 className="text-2xl font-bold text-white">🏛 Top 100 Awards Hall of Fame</h2>
+      <p className="text-gray-300 text-sm mt-1">S25, S26 and S27 awards archive.</p>
+    </div>
+
+    <div className="p-6 space-y-8">
+      {Object.entries(hallData.hallOfFame).map(([category, seasons]) => (
+        <div key={category}>
+          <h3 className="text-xl font-bold text-yellow-300 mb-3">
+            {seasons[0]?.categoryLabel || category}
+          </h3>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="text-gray-300 border-b border-white/10">
+                  <th className="py-2 pr-4">Season</th>
+                  <th className="py-2 pr-4">Winner</th>
+                  <th className="py-2 pr-4">Runner-up</th>
+                  <th className="py-2 pr-4">Third</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {[...seasons]
+                  .sort((a, b) => b.season.localeCompare(a.season))
+                  .map((row) => {
+                    const winner = row.podium.find((p) => p.rank === 1);
+                    const second = row.podium.find((p) => p.rank === 2);
+                    const third = row.podium.find((p) => p.rank === 3);
+
+                    return (
+                      <tr key={`${category}-${row.season}`} className="border-b border-white/5">
+                        <td className="py-3 pr-4 font-bold text-white">{row.season}</td>
+                        <td className="py-3 pr-4 text-yellow-300">
+                          {winner ? `🥇 ${winner.name} (${winner.percentage}%)` : "—"}
+                        </td>
+                        <td className="py-3 pr-4 text-slate-200">
+                          {second ? `🥈 ${second.name} (${second.percentage}%)` : "—"}
+                        </td>
+                        <td className="py-3 pr-4 text-orange-300">
+                          {third ? `🥉 ${third.name} (${third.percentage}%)` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
         </div>
+      ))}
+    </div>
+  </div>
+)}
 
-        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+{awardsView === "managers" && hallData && (
+  <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+    <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
+      <h2 className="text-2xl font-bold text-white">👤 Manager Awards Cabinets</h2>
+      <p className="text-gray-300 text-sm mt-1">Every podium finish by manager.</p>
+
+      <select
+        value={selectedManager}
+        onChange={(e) => setSelectedManager(e.target.value)}
+        className="mt-4 w-full max-w-md rounded-lg bg-white/10 border border-white/20 px-3 py-2 text-white"
+      >
+        <option value="">Choose a manager</option>
+        {Object.keys(hallData.managerAwards)
+          .sort()
+          .map((manager) => (
+            <option key={manager} value={manager} className="text-black">
+              {manager}
+            </option>
+          ))}
+      </select>
+    </div>
+
+    <div className="p-6">
+      {selectedManager ? (
+        (() => {
+          const awards = hallData.managerAwards[selectedManager] || [];
+          const gold = awards.filter((a) => a.rank === 1).length;
+          const silver = awards.filter((a) => a.rank === 2).length;
+          const bronze = awards.filter((a) => a.rank === 3).length;
+
+          return (
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-2">{selectedManager}</h3>
+
+              <div className="flex flex-wrap gap-3 mb-6">
+                <div className="rounded-lg bg-yellow-500/20 border border-yellow-300/40 px-4 py-2 text-yellow-300 font-bold">
+                  🥇 {gold} Gold
+                </div>
+                <div className="rounded-lg bg-slate-300/10 border border-slate-200/40 px-4 py-2 text-slate-200 font-bold">
+                  🥈 {silver} Silver
+                </div>
+                <div className="rounded-lg bg-orange-500/10 border border-orange-300/40 px-4 py-2 text-orange-300 font-bold">
+                  🥉 {bronze} Bronze
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {[...awards]
+                  .sort((a, b) => b.season.localeCompare(a.season) || a.rank - b.rank)
+                  .map((award) => (
+                    <div
+                      key={`${award.season}-${award.category}-${award.rank}`}
+                      className="rounded-lg bg-white/5 border border-white/10 p-4"
+                    >
+                      <div className="text-sm text-gray-300">{award.season}</div>
+                      <div className="text-white font-bold">{award.categoryLabel}</div>
+                      <div
+                        className={`mt-1 font-bold ${
+                          award.rank === 1
+                            ? "text-yellow-300"
+                            : award.rank === 2
+                            ? "text-slate-200"
+                            : "text-orange-300"
+                        }`}
+                      >
+                        {award.rank === 1
+                          ? "🥇 Winner"
+                          : award.rank === 2
+                          ? "🥈 Runner-up"
+                          : "🥉 Third"}
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        {award.votes} votes · {award.percentage}%
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          );
+        })()
+      ) : (
+        <p className="text-gray-300">Choose a manager to view their awards cabinet.</p>
+      )}
+    </div>
+  </div>
+)}
+
+{awardsView === "records" && hallData && (
+  <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+    <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
+      <h2 className="text-2xl font-bold text-white">📊 Awards Records</h2>
+      <p className="text-gray-300 text-sm mt-1">Career records from archived awards data.</p>
+    </div>
+
+    <div className="p-6 grid gap-4 md:grid-cols-2">
+      <div className="rounded-lg bg-white/5 border border-white/10 p-4">
+        <h3 className="text-lg font-bold text-yellow-300 mb-3">🏆 Most Wins</h3>
+        {Object.entries(hallData.records.mostWins)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([name, count], index) => (
+            <div key={name} className="flex justify-between border-b border-white/5 py-2">
+              <span className="text-white">{index + 1}. {name}</span>
+              <span className="text-yellow-300 font-bold">{count}</span>
+            </div>
+          ))}
+      </div>
+
+      <div className="rounded-lg bg-white/5 border border-white/10 p-4">
+        <h3 className="text-lg font-bold text-slate-200 mb-3">🥇 Most Podiums</h3>
+        {Object.entries(hallData.records.mostPodiums)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([name, count], index) => (
+            <div key={name} className="flex justify-between border-b border-white/5 py-2">
+              <span className="text-white">{index + 1}. {name}</span>
+              <span className="text-slate-200 font-bold">{count}</span>
+            </div>
+          ))}
+      </div>
+
+      {hallData.records.highestWinningPercentage && (
+        <div className="rounded-lg bg-white/5 border border-white/10 p-4">
+          <h3 className="text-lg font-bold text-orange-300 mb-3">🔥 Highest Winning %</h3>
+          <div className="text-white font-bold">
+            {hallData.records.highestWinningPercentage.name}
+          </div>
+          <div className="text-gray-300 text-sm">
+            {hallData.records.highestWinningPercentage.season} ·{" "}
+            {hallData.records.highestWinningPercentage.categoryLabel}
+          </div>
+          <div className="text-yellow-300 text-2xl font-black mt-2">
+            {hallData.records.highestWinningPercentage.percentage}%
+          </div>
+        </div>
+      )}
+
+      {hallData.records.closestWinningMargin && (
+        <div className="rounded-lg bg-white/5 border border-white/10 p-4">
+          <h3 className="text-lg font-bold text-red-300 mb-3">⚔ Closest Vote</h3>
+          <div className="text-white font-bold">
+            {hallData.records.closestWinningMargin.winner.name}
+          </div>
+          <div className="text-gray-300 text-sm">
+            beat {hallData.records.closestWinningMargin.runnerUp.name} by{" "}
+            {hallData.records.closestWinningMargin.margin} vote
+          </div>
+          <div className="text-gray-300 text-sm mt-1">
+            {hallData.records.closestWinningMargin.season} ·{" "}
+            {hallData.records.closestWinningMargin.categoryLabel}
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+        
+{awardsView === "current" && (
+  <>
+<div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
           <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
             <div className="flex items-start gap-3">
   {React.createElement(categories[activeCategory].icon, {
@@ -1180,6 +1474,9 @@ if (!isLoggedIn) {
             </div>
           </div>
         </div>
+
+  </>
+)}
       </div>
     </div>
   );
