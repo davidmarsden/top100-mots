@@ -1477,7 +1477,6 @@ if (!isLoggedIn) {
 
   </>
 )}
-      </div>
-    </div>
+      
   );
 }
