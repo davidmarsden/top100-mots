@@ -1032,10 +1032,11 @@ if (!isLoggedIn) {
     )
   );
 
-  const voteCount = results?.[activeCategory]?.[nominee.id]?.votes || 0;
-  const isWinner = (results || rawVotingClosed) && voteCount > 0 && voteCount === maxVotes;
-                const voteCount = getVoteCount(activeCategory, nominee.id);
-                const totalVotes = getTotalVotes(activeCategory);
+  const voteCount = getVoteCount(activeCategory, nominee.id);
+const isWinner =
+  (results || rawVotingClosed) && voteCount > 0 && voteCount === maxVotes;
+
+const totalVotes = getTotalVotes(activeCategory);
                 const percentage =
                   totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
 
