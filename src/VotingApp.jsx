@@ -1022,12 +1022,14 @@ if (!isLoggedIn) {
           <div className="p-6">
             <div className="grid gap-4 md:grid-cols-2">
               {categories[activeCategory].nominees.map((nominee) => {
-  const isVoted = votes[activeCategory] === nominee.id;
+  
+
+const isVoted = votes[activeCategory] === nominee.id;
 
 const voteCount = getVoteCount(activeCategory, nominee.id);
 const totalVotes = getTotalVotes(activeCategory);
 const percentage =
-  totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+  totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
 
 const categoryNominees = categories[activeCategory].nominees;
 const maxVotes = Math.max(
@@ -1036,10 +1038,6 @@ const maxVotes = Math.max(
 
 const isWinner =
   (results || rawVotingClosed) && voteCount > 0 && voteCount === maxVotes;
-
-const totalVotes = getTotalVotes(activeCategory);
-                const percentage =
-                  totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : 0;
 
                 const disabled = rawVotingClosed && !isAdmin;
 
