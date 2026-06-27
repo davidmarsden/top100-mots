@@ -1063,8 +1063,7 @@ if (!isLoggedIn) {
   )}
 
 
-{awardsView === "current" && (
-  <>
+{awardsView === "hall" && hallData && (
   <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
     <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 p-6 border-b border-white/10">
       <h2 className="text-2xl font-bold text-white">🏛 Top 100 Awards Hall of Fame</h2>
