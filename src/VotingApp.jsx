@@ -1022,7 +1022,18 @@ if (!isLoggedIn) {
           <div className="p-6">
             <div className="grid gap-4 md:grid-cols-2">
               {categories[activeCategory].nominees.map((nominee) => {
-                const isVoted = votes[activeCategory] === nominee.id;
+  const isVoted = votes[activeCategory] === nominee.id;
+
+  const categoryNominees = categories[activeCategory].nominees;
+
+  const maxVotes = Math.max(
+    ...categoryNominees.map(
+      (n) => results?.[activeCategory]?.[n.id]?.votes || 0
+    )
+  );
+
+  const voteCount = results?.[activeCategory]?.[nominee.id]?.votes || 0;
+  const isWinner = (results || rawVotingClosed) && voteCount > 0 && voteCount === maxVotes;
                 const voteCount = getVoteCount(activeCategory, nominee.id);
                 const totalVotes = getTotalVotes(activeCategory);
                 const percentage =
@@ -1032,15 +1043,22 @@ if (!isLoggedIn) {
 
                 return (
                   <div
-                    key={nominee.id}
-                    className={`bg-white/5 border rounded-lg p-4 transition-all ${
-                      isVoted
-                        ? "border-green-400 bg-green-500/20"
-                        : "border-white/20 hover:border-white/40"
-                    } ${disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:bg-white/10"}`}
-                    onClick={() => !disabled && submitVote(activeCategory, nominee.id)}
-                  >
+  key={nominee.id}
+  className={`relative bg-white/5 border rounded-lg p-4 transition-all ${
+    isWinner
+      ? "border-yellow-300 bg-yellow-500/10 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
+      : isVoted
+      ? "border-green-400 bg-green-500/20"
+      : "border-white/20 hover:border-white/40"
+  } ${disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:bg-white/10"}`}
+  onClick={() => !disabled && submitVote(activeCategory, nominee.id)}
+>
                     <div className="flex items-start justify-between mb-3">
+  {isWinner && (
+  <div className="absolute -top-2 -right-2 rotate-6 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-orange-500 px-4 py-1 text-xs font-black text-black shadow-xl border border-yellow-200">
+    🏆 WINNER
+  </div>
+)}
                       <div>
                         <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
                         <p className="text-yellow-400 font-medium">{nominee.club}</p>
