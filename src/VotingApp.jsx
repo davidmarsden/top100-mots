@@ -1081,7 +1081,7 @@ if (!isLoggedIn) {
 >
   {isWinner && (
     <div className="absolute -top-2 -right-2 z-20 rotate-6 rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-orange-500 px-4 py-1 text-xs font-black text-black shadow-xl border border-yellow-200">
-      {isOverall ? "👑 MANAGER OF THE SEASON" : "🏆 WINNER"}
+      {isOverall ? "👑 S27 MANAGER OF THE SEASON" : "🏆 WINNER"}
     </div>
   )}
 
@@ -1102,9 +1102,24 @@ if (!isLoggedIn) {
 
 
                       <div>
-                        <h3 className="text-lg font-semibold text-white">{nominee.name}</h3>
-                        <p className="text-yellow-400 font-medium">{nominee.club}</p>
-                      </div>
+  <h3
+    className={`text-lg font-semibold ${
+      isWinner
+        ? "text-yellow-300"
+        : isRunnerUp
+        ? "text-slate-200"
+        : isThird
+        ? "text-orange-300"
+        : "text-white"
+    }`}
+  >
+    {nominee.name}
+  </h3>
+
+  <p className="text-yellow-400 font-medium">
+    {nominee.club}
+  </p>
+</div>
                       {isVoted && (
                         <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
                       )}
