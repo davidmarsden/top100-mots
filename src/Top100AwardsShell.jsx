@@ -1,6 +1,6 @@
 import React from "react";
 
-const MAIN_SITE_URL = "https://smtop100.micro.blog/";
+const MAIN_SITE_URL = "https://smtop100.blog/";
 
 export default function Top100AwardsShell({ children }) {
   return (
@@ -21,7 +21,9 @@ export default function Top100AwardsShell({ children }) {
           <nav className="top100-family-header__nav" aria-label="Top 100 websites">
             <a href={MAIN_SITE_URL}>Top 100</a>
             <a href="https://archive.smtop100.blog/">Stats &amp; History</a>
-            <a href="https://youth-cup.smtop100.blog/">Tournaments</a>
+            <a href="https://tournaments.smtop100.blog/">Tournaments</a>
+            <a href="https://vote.smtop100.blog/">Voting Results</a>
+            <a href="https://vote.smtop100.blog/vote">Vote</a>
             <a className="is-current" href="https://awards.smtop100.blog/">Awards</a>
             <a href="https://top100regen.website/">Regen</a>
           </nav>
@@ -38,13 +40,15 @@ export default function Top100AwardsShell({ children }) {
           </div>
           <nav aria-label="Top 100 footer links">
             <a href={MAIN_SITE_URL}>Top 100</a>
+            <a href="https://archive.smtop100.blog/">Stats &amp; History</a>
+            <a href="https://tournaments.smtop100.blog/">Tournaments</a>
+            <a href="https://vote.smtop100.blog/">Voting Results</a>
+            <a href="https://vote.smtop100.blog/vote">Vote</a>
             <a href={`${MAIN_SITE_URL}rules/`}>Rules</a>
             <a href={`${MAIN_SITE_URL}support/`}>Support</a>
-            <a href="https://archive.smtop100.blog/">Stats &amp; History</a>
-            <a href="https://youth-cup.smtop100.blog/">Tournaments</a>
           </nav>
         </div>
-        <div className="top100-family-footer__note">Manager Awards, winners, records and community voting.</div>
+        <div className="top100-family-footer__note">Manager Awards, winners, records and authenticated community voting.</div>
       </footer>
     </div>
   );

@@ -1,17 +1,25 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import VotingApp from "./VotingApp.jsx";
-import SharedVotingAwards from "./SharedVotingAwards.jsx";
+import AwardsHome from "./AwardsHome.jsx";
+import AwardsHistory from "./AwardsHistory.jsx";
+import AwardsVotingEntry from "./AwardsVotingEntry.jsx";
 import Top100AwardsShell from "./Top100AwardsShell.jsx";
 import "./index.css";
 import "./top100-family.css";
 
 const params = new URLSearchParams(window.location.search);
+const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const useSharedVotingV2 = params.get("shared-voting-v2") === "1";
-const el = document.getElementById("root");
+const useLegacyAwards = params.get("legacy") === "1";
 
-createRoot(el).render(
-  <Top100AwardsShell>
-    {useSharedVotingV2 ? <SharedVotingAwards /> : <VotingApp />}
-  </Top100AwardsShell>
-);
+let content;
+if (pathname === "/vote" || useSharedVotingV2) {
+  content = <AwardsVotingEntry />;
+} else if (pathname === "/history" || useLegacyAwards) {
+  content = <AwardsHistory />;
+} else {
+  content = <AwardsHome />;
+}
+
+const el = document.getElementById("root");
+createRoot(el).render(<Top100AwardsShell>{content}</Top100AwardsShell>);
