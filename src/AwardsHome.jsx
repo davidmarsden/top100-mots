@@ -20,27 +20,27 @@ export default function AwardsHome() {
         <a href={votingUrl} className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10 transition">
           <Vote className="text-green-300" />
           <h2 className="mt-4 text-2xl font-bold">Vote</h2>
-          <p className="mt-2 text-gray-300">Authenticated Awards voting using the shared manager identity system.</p>
+          <p className="mt-2 text-gray-300">Cast your Awards ballot with your verified Top 100 manager account.</p>
         </a>
 
         <a href={resultsUrl} className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10 transition">
           <Award className="text-yellow-400" />
           <h2 className="mt-4 text-2xl font-bold">Published results</h2>
-          <p className="mt-2 text-gray-300">Public results from released manager polls and Awards voting.</p>
+          <p className="mt-2 text-gray-300">See published Manager Awards results and other Top 100 manager votes.</p>
           <span className="mt-4 inline-flex items-center gap-1 text-sm text-green-300">Open results <ExternalLink size={15} /></span>
         </a>
 
         <a href={historyUrl} className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10 transition">
           <History className="text-blue-300" />
           <h2 className="mt-4 text-2xl font-bold">Hall of Fame & history</h2>
-          <p className="mt-2 text-gray-300">Existing Awards archive, manager cabinets, winners and records.</p>
+          <p className="mt-2 text-gray-300">Explore past winners, podiums, manager cabinets and Awards records.</p>
         </a>
       </div>
 
       <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6">
-        <h2 className="text-xl font-bold">What is changing?</h2>
+        <h2 className="text-xl font-bold">How the Awards work</h2>
         <p className="mt-2 text-gray-300">
-          New Awards ballots use the same authenticated voting foundation as All-Manager Polls. The historical Awards archive remains intact while the old typed-name voting backend is retained only as a legacy reference during the transition.
+          Current Top 100 managers can vote when the Awards are open. Results are published after voting closes, and every season is added to the Hall of Fame.
         </p>
       </section>
     </div>
