@@ -35,37 +35,26 @@ export default function AwardsVotingEntry() {
         if (error) console.warn("Could not import Manager Portal session into Awards.", error);
       }
 
+      // The Manager Portal is the canonical manager identity. A null bridge
+      // response means there is no portal session to reconcile, so any valid
+      // Awards-local session can continue to be used as the fallback.
       finish();
     };
 
     window.addEventListener("message", handleMessage);
 
-    sharedVoting.auth.getSession()
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn("Could not read Awards session before manager bridge check.", error);
-          finish();
-          return;
-        }
-        if (data.session) {
-          finish();
-          return;
-        }
+    // Always ask the Manager Portal first, even when this origin already has a
+    // cached session. That prevents a stale Awards login for manager A from
+    // overriding a newer Manager Portal login for manager B on a shared device.
+    frame = document.createElement("iframe");
+    frame.src = `${MANAGER_ORIGIN}/auth/session-bridge`;
+    frame.title = "Manager sign-in check";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.display = "none";
+    frame.addEventListener("error", finish, { once: true });
+    document.body.appendChild(frame);
 
-        frame = document.createElement("iframe");
-        frame.src = `${MANAGER_ORIGIN}/auth/session-bridge`;
-        frame.title = "Manager sign-in check";
-        frame.setAttribute("aria-hidden", "true");
-        frame.style.display = "none";
-        frame.addEventListener("error", finish, { once: true });
-        document.body.appendChild(frame);
-
-        timeout = window.setTimeout(finish, BRIDGE_TIMEOUT_MS);
-      })
-      .catch((error) => {
-        console.warn("Manager sign-in bridge check failed for Awards.", error);
-        finish();
-      });
+    timeout = window.setTimeout(finish, BRIDGE_TIMEOUT_MS);
 
     return () => {
       if (timeout) window.clearTimeout(timeout);
