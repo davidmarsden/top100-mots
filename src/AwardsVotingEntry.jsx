@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import SharedVotingAwards from "./SharedVotingAwards.jsx";
 import { hasSharedVotingConfig, sharedVoting } from "./sharedVotingClient.js";
 
-const MANAGER_ORIGIN = "https://tournaments.smtop100.blog";
+const MANAGER_ORIGIN = "https://manager.smtop100.blog";
 const BRIDGE_TIMEOUT_MS = 15000;
 
 export default function AwardsVotingEntry() {
@@ -35,17 +35,11 @@ export default function AwardsVotingEntry() {
         if (error) console.warn("Could not import Manager Portal session into Awards.", error);
       }
 
-      // The Manager Portal is the canonical manager identity. A null bridge
-      // response means there is no portal session to reconcile, so any valid
-      // Awards-local session can continue to be used as the fallback.
       finish();
     };
 
     window.addEventListener("message", handleMessage);
 
-    // Always ask the Manager Portal first, even when this origin already has a
-    // cached session. That prevents a stale Awards login for manager A from
-    // overriding a newer Manager Portal login for manager B on a shared device.
     frame = document.createElement("iframe");
     frame.src = `${MANAGER_ORIGIN}/auth/session-bridge`;
     frame.title = "Manager sign-in check";
