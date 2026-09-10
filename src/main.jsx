@@ -1,8 +1,8 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import AwardsHome from "./AwardsHome.jsx";
+import AwardsHistory from "./AwardsHistory.jsx";
 import AwardsVotingEntry from "./AwardsVotingEntry.jsx";
-import VotingApp from "./VotingApp.jsx";
 import Top100AwardsShell from "./Top100AwardsShell.jsx";
 import "./index.css";
 import "./top100-family.css";
@@ -16,7 +16,7 @@ let content;
 if (pathname === "/vote" || useSharedVotingV2) {
   content = <AwardsVotingEntry />;
 } else if (pathname === "/history" || useLegacyAwards) {
-  content = <VotingApp />;
+  content = <AwardsHistory />;
 } else {
   content = <AwardsHome />;
 }
