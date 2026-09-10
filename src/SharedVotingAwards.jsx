@@ -91,7 +91,7 @@ export default function SharedVotingAwards() {
 
   async function loadAwards() {
     setLoading(true);
-    setMessage("Loading Shared Voting V2…");
+    setMessage("Loading Awards…");
 
     const [accountResult, adminResult, eventResult] = await Promise.all([
       sharedVoting
@@ -131,7 +131,7 @@ export default function SharedVotingAwards() {
       setOptions([]);
       setBallots({});
       setLoading(false);
-      setMessage("No Shared Voting V2 Awards event exists yet.");
+      setMessage("");
       return;
     }
 
@@ -189,7 +189,7 @@ export default function SharedVotingAwards() {
 
     if (managerAccount) {
       setMessage(
-        `Shared voting account verified as ${managerAccount.managers?.display_name || managerAccount.managers?.name || "manager"}.`
+        `Signed in as ${managerAccount.managers?.display_name || managerAccount.managers?.name || "manager"}.`
       );
     } else if (adminResult.data) {
       setMessage("Administrator access verified. An active manager account is still required to vote.");
@@ -271,8 +271,8 @@ export default function SharedVotingAwards() {
     return (
       <div className="max-w-3xl mx-auto p-6 text-white">
         <div className="rounded-xl border border-red-400/30 bg-red-950/30 p-5">
-          <strong>Shared Voting V2 is not configured.</strong>
-          <p className="mt-2 text-sm text-gray-300">The Awards deployment needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</p>
+          <strong>Awards voting is temporarily unavailable.</strong>
+          <p className="mt-2 text-sm text-gray-300">Please try again later.</p>
         </div>
       </div>
     );
@@ -282,14 +282,14 @@ export default function SharedVotingAwards() {
     return (
       <div className="max-w-xl mx-auto p-6 text-white">
         <div className="rounded-2xl border border-white/20 bg-white/10 p-6 shadow-xl">
-          <div className="flex items-center gap-3 mb-4"><Trophy className="text-yellow-400" /><div><p className="uppercase tracking-widest text-xs text-green-300">Shared Voting V2 test</p><h1 className="text-3xl font-bold">Top 100 Awards</h1></div></div>
-          <p className="text-gray-300 mb-6">Sign in with the same email address as your Top 100 Manager Portal account. Typed manager names are no longer used in this adapter.</p>
+          <div className="flex items-center gap-3 mb-4"><Trophy className="text-yellow-400" /><div><p className="uppercase tracking-widest text-xs text-green-300">Manager Awards voting</p><h1 className="text-3xl font-bold">Top 100 Awards</h1></div></div>
+          <p className="text-gray-300 mb-6">Sign in with the same email address as your Top 100 Manager Portal account.</p>
           <form onSubmit={sendMagicLink} className="space-y-4">
             <label className="block text-sm font-semibold">Email address<input className="mt-2 w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 text-white" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
             <button className="w-full rounded-lg bg-yellow-500 px-4 py-2 font-bold text-black hover:bg-yellow-400" type="submit" disabled={loading}>{loading ? "Sending…" : "Email me a secure sign-in link"}</button>
           </form>
           {message && <p className="mt-4 text-sm text-gray-300">{message}</p>}
-          <p className="mt-6 text-xs text-gray-400"><a className="underline" href="/">Return to the current Awards app</a></p>
+          <p className="mt-6 text-xs text-gray-400"><a className="underline" href="/">Return to Awards</a></p>
         </div>
       </div>
     );
@@ -316,7 +316,7 @@ export default function SharedVotingAwards() {
     <div className="max-w-5xl mx-auto p-4 md:p-6 text-white">
       <section className="rounded-2xl border border-white/15 bg-gradient-to-br from-blue-950/80 to-slate-900/80 p-5 md:p-7 shadow-2xl">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div><p className="uppercase tracking-[0.25em] text-xs font-bold text-green-300">Awards adapter · Shared Voting V2</p><h1 className="mt-2 text-3xl md:text-4xl font-bold">Top 100 Manager Awards</h1><p className="mt-2 text-gray-300">Authenticated manager identity, one ballot per manager, editable until close.</p></div>
+          <div><p className="uppercase tracking-[0.25em] text-xs font-bold text-green-300">Manager Awards voting</p><h1 className="mt-2 text-3xl md:text-4xl font-bold">Top 100 Manager Awards</h1><p className="mt-2 text-gray-300">One ballot per manager, editable until voting closes.</p></div>
           <button onClick={logout} className="self-start rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm">Sign out</button>
         </div>
       </section>
@@ -329,7 +329,7 @@ export default function SharedVotingAwards() {
       )}
 
       {!loading && events.length === 0 && (
-        <div className="my-5 rounded-xl border border-white/15 bg-white/5 p-5"><h2 className="text-xl font-bold">No Shared Voting Awards event yet</h2><p className="mt-2 text-gray-300">The adapter is connected successfully. Create an Awards-shaped test event in Shared Voting V2 to exercise the full flow.</p></div>
+        <div className="my-5 rounded-xl border border-white/15 bg-white/5 p-5"><h2 className="text-xl font-bold">Awards voting is not currently open</h2><p className="mt-2 text-gray-300">There isn't an active Manager Awards ballot at the moment. Check back when nominations and voting open.</p></div>
       )}
 
       {!loading && events.length > 0 && (
@@ -357,7 +357,7 @@ export default function SharedVotingAwards() {
         </>
       )}
 
-      <div className="mt-8 flex flex-wrap gap-4 text-sm text-gray-400"><a className="underline" href="/">Current Awards app</a><a className="underline" href="https://vote.smtop100.blog">Shared Voting admin/front door</a><a className="underline" href="https://tournaments.smtop100.blog/manager">Manager Portal</a></div>
+      <div className="mt-8 flex flex-wrap gap-4 text-sm text-gray-400"><a className="underline" href="/">Awards home</a><a className="underline" href="https://vote.smtop100.blog">Voting Results</a><a className="underline" href="https://tournaments.smtop100.blog/manager">Manager Portal</a></div>
     </div>
   );
 }
