@@ -325,7 +325,7 @@ export default function SharedVotingAwards() {
       {loading && <div className="my-5 rounded-xl bg-white/10 p-5">Loading…</div>}
 
       {!loading && !account && !isAdmin && (
-        <div className="my-5 rounded-xl border border-amber-400/30 bg-amber-950/20 p-5"><Lock className="mb-2 text-amber-300" /><h2 className="text-xl font-bold">Manager account required</h2><p className="mt-2 text-gray-300">Your email is authenticated but not linked to an active manager identity. Claim or restore your identity in the Manager Portal first.</p><a className="mt-3 inline-block underline" href="https://tournaments.smtop100.blog/manager">Open Manager Portal</a></div>
+        <div className="my-5 rounded-xl border border-amber-400/30 bg-amber-950/20 p-5"><Lock className="mb-2 text-amber-300" /><h2 className="text-xl font-bold">Manager account required</h2><p className="mt-2 text-gray-300">Your email is authenticated but not linked to an active manager identity. Claim or restore your identity in the Manager Portal first.</p><a className="mt-3 inline-block underline" href="https://manager.smtop100.blog/">Open Manager Portal</a></div>
       )}
 
       {!loading && events.length === 0 && (
@@ -357,7 +357,7 @@ export default function SharedVotingAwards() {
         </>
       )}
 
-      <div className="mt-8 flex flex-wrap gap-4 text-sm text-gray-400"><a className="underline" href="/">Awards home</a><a className="underline" href="https://vote.smtop100.blog">Voting Results</a><a className="underline" href="https://tournaments.smtop100.blog/manager">Manager Portal</a></div>
+      <div className="mt-8 flex flex-wrap gap-4 text-sm text-gray-400"><a className="underline" href="/">Awards home</a><a className="underline" href="https://vote.smtop100.blog">Voting Results</a><a className="underline" href="https://manager.smtop100.blog/">Manager Portal</a></div>
     </div>
   );
 }
