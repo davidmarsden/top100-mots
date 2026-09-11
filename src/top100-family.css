@@ -79,6 +79,10 @@
 }
 .top100-awards-shell__main .sticky.top-0 { top: 0; background: rgba(7,21,38,0.86) !important; border-color: rgba(255,255,255,0.1) !important; backdrop-filter: blur(14px); }
 
+/* Awards is deliberately self-contained; Community Polls are a separate product. */
+.top100-awards-shell__main a[href="https://vote.smtop100.blog"],
+.top100-awards-shell__main a[href="https://vote.smtop100.blog/"] { display: none !important; }
+
 .top100-family-footer { color: #fff; border-top: 1px solid rgba(255,255,255,0.1); background: var(--top100-navy-deep); }
 .top100-family-footer__inner { width: min(1500px, calc(100% - 40px)); margin: 0 auto; padding: 30px 0 22px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .top100-family-footer__brand { display: flex; align-items: baseline; gap: 12px; color: #cbd5e1; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }
