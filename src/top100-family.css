@@ -71,7 +71,8 @@
 .top100-family-header__local a:hover,
 .top100-family-header__local a:focus-visible { border-color: #fff; color: #fff; transform: translateY(-1px); }
 .top100-family-header__utility .top100-family-header__manager-link { color: var(--top100-navy); border-color: var(--top100-emerald); background: var(--top100-emerald); }
-.top100-family-header__utility .top100-family-header__manager-link:hover { background: #34d399; }
+.top100-family-header__utility .top100-family-header__manager-link:hover,
+.top100-family-header__utility .top100-family-header__manager-link:focus-visible { color: var(--top100-navy); border-color: var(--top100-emerald); background: #34d399; }
 
 .top100-awards-shell__main > .min-h-screen {
   background: radial-gradient(circle at 78% 8%, rgba(251,191,36,0.12), transparent 28%), linear-gradient(135deg, #0b1f3b 0%, #172554 48%, #14532d 100%) !important;
