@@ -3,6 +3,19 @@ import React from "react";
 const MAIN_SITE_URL = "https://smtop100.blog/";
 const REGEN_URL = "https://smtop100.blog/regen/";
 
+const GLOBAL_LINKS = [
+  { label: "Top 100", href: MAIN_SITE_URL },
+  { label: "Top 100 Regen", href: REGEN_URL },
+  { label: "About", href: `${MAIN_SITE_URL}about/` },
+  { label: "Explore", href: `${MAIN_SITE_URL}explore/` },
+];
+
+const AWARDS_LINKS = [
+  { label: "Awards home", href: "https://awards.smtop100.blog/" },
+  { label: "Vote in the Awards", href: "https://awards.smtop100.blog/vote" },
+  { label: "Hall of Fame & history", href: "https://awards.smtop100.blog/history" },
+];
+
 export default function Top100AwardsShell({ children }) {
   return (
     <div className="top100-awards-shell">
@@ -19,15 +32,16 @@ export default function Top100AwardsShell({ children }) {
             <strong>Awards</strong>
           </div>
 
-          <nav className="top100-family-header__nav" aria-label="Top 100 websites">
-            <a href={MAIN_SITE_URL}>Top 100</a>
-            <a href="https://archive.smtop100.blog/">Stats &amp; History</a>
-            <a href="https://tournaments.smtop100.blog/">Tournaments</a>
-            <a href="https://vote.smtop100.blog/">Voting Results</a>
-            <a href="https://vote.smtop100.blog/vote">Vote</a>
-            <a className="is-current" href="https://awards.smtop100.blog/">Awards</a>
-            <a href="https://manager.smtop100.blog/">Manager</a>
-            <a href={REGEN_URL}>Regen</a>
+          <nav className="top100-family-header__nav" aria-label="Top 100 public navigation">
+            {GLOBAL_LINKS.map((link) => <a key={link.label} href={link.href}>{link.label}</a>)}
+          </nav>
+
+          <nav className="top100-family-header__utility" aria-label="Manager account">
+            <a className="top100-family-header__manager-link" href="https://manager.smtop100.blog/">Manager sign-in</a>
+          </nav>
+
+          <nav className="top100-family-header__local" aria-label="Manager Awards navigation">
+            {AWARDS_LINKS.map((link) => <a key={link.label} href={link.href}>{link.label}</a>)}
           </nav>
         </div>
       </header>
@@ -42,18 +56,15 @@ export default function Top100AwardsShell({ children }) {
           </div>
           <nav aria-label="Top 100 footer links">
             <a href={MAIN_SITE_URL}>Top 100</a>
-            <a href="https://archive.smtop100.blog/">Stats &amp; History</a>
-            <a href="https://tournaments.smtop100.blog/">Tournaments</a>
-            <a href="https://vote.smtop100.blog/">Voting Results</a>
-            <a href="https://vote.smtop100.blog/vote">Vote</a>
-            <a href={`${MAIN_SITE_URL}rules/`}>Rules</a>
+            <a href={REGEN_URL}>Top 100 Regen</a>
+            <a href={`${MAIN_SITE_URL}about/`}>About</a>
+            <a href={`${MAIN_SITE_URL}explore/`}>Explore</a>
             <a href={`${MAIN_SITE_URL}support/`}>Support</a>
-            <a href="https://awards.smtop100.blog/">Awards</a>
-            <a href="https://manager.smtop100.blog/">Manager</a>
-            <a href={REGEN_URL}>Regen</a>
+            <a href={`${MAIN_SITE_URL}subscribe/`}>Subscribe</a>
+            <a href="https://manager.smtop100.blog/">Manager portal</a>
           </nav>
         </div>
-        <div className="top100-family-footer__note">Manager Awards, winners, records and authenticated community voting.</div>
+        <div className="top100-family-footer__note">End-of-season Manager Awards voting, Hall of Fame, manager cabinets and Awards history.</div>
       </footer>
     </div>
   );

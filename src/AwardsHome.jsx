@@ -1,8 +1,7 @@
 import React from "react";
-import { Award, ExternalLink, History, Vote } from "lucide-react";
+import { History, Vote } from "lucide-react";
 
 const votingUrl = "/vote";
-const resultsUrl = "https://vote.smtop100.blog/";
 const historyUrl = "/history";
 
 export default function AwardsHome() {
@@ -12,14 +11,14 @@ export default function AwardsHome() {
         <p className="uppercase tracking-[0.25em] text-xs font-bold text-green-300">Top 100</p>
         <h1 className="mt-2 text-4xl md:text-5xl font-bold">Manager Awards</h1>
         <p className="mt-3 max-w-3xl text-gray-300">
-          Vote using your verified Top 100 manager account, then explore the Manager Awards Hall of Fame, past winners and records.
+          Vote in the end-of-season Manager Awards, then explore the Hall of Fame, past winners, manager cabinets and records.
         </p>
       </section>
 
       <div className="mt-6 grid gap-5 md:grid-cols-3">
         <a href={votingUrl} className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10 transition">
           <Vote className="text-green-300" />
-          <h2 className="mt-4 text-2xl font-bold">Vote</h2>
+          <h2 className="mt-4 text-2xl font-bold">Vote in the Awards</h2>
           <p className="mt-2 text-gray-300">Cast your end-of-season Manager Awards ballot with your verified Top 100 manager account.</p>
         </a>
 
@@ -31,21 +30,6 @@ export default function AwardsHome() {
           <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-yellow-200">Explore Awards history →</span>
         </a>
       </div>
-
-      <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6">
-        <div className="flex items-start gap-3">
-          <Award className="mt-1 shrink-0 text-blue-300" />
-          <div>
-            <h2 className="text-xl font-bold">Top 100 community polls</h2>
-            <p className="mt-2 text-gray-300">
-              All-manager polls on rules, proposals and other community questions are separate from the end-of-season Manager Awards.
-            </p>
-            <a href={resultsUrl} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-green-300">
-              View community poll results <ExternalLink size={15} />
-            </a>
-          </div>
-        </div>
-      </section>
 
       <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6">
         <h2 className="text-xl font-bold">How the Awards work</h2>
