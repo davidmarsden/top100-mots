@@ -41,8 +41,8 @@ export default function AwardsHistory() {
       <section className="rounded-2xl border border-white/15 bg-gradient-to-br from-blue-950/80 to-slate-900/80 p-5 md:p-7 shadow-2xl">
         <p className="uppercase tracking-[0.25em] text-xs font-bold text-green-300">Read-only archive</p>
         <h1 className="mt-2 text-3xl md:text-4xl font-bold">Manager Awards History</h1>
-        <p className="mt-2 text-gray-300">Past winners, podiums, manager cabinets and records. Voting has moved to the authenticated shared voting system.</p>
-        <a className="mt-4 inline-block rounded-lg bg-yellow-500 px-4 py-2 font-bold text-black hover:bg-yellow-400" href="/vote">Open current Awards voting</a>
+        <p className="mt-2 text-gray-300">Past winners, podiums, manager cabinets and records from every completed Manager Awards season.</p>
+        <a className="mt-4 inline-block rounded-lg bg-yellow-500 px-4 py-2 font-bold text-black hover:bg-yellow-400" href="/vote">Vote in the current Awards</a>
       </section>
 
       <nav className="my-5 flex flex-wrap gap-2" aria-label="Awards history views">
