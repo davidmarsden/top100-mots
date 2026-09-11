@@ -12,7 +12,7 @@ export default function AwardsHome() {
         <p className="uppercase tracking-[0.25em] text-xs font-bold text-green-300">Top 100</p>
         <h1 className="mt-2 text-4xl md:text-5xl font-bold">Manager Awards</h1>
         <p className="mt-3 max-w-3xl text-gray-300">
-          Vote using your verified Top 100 manager account, then explore published results, Hall of Fame records and manager award history.
+          Vote using your verified Top 100 manager account, then explore the Manager Awards Hall of Fame, past winners and records.
         </p>
       </section>
 
@@ -20,22 +20,32 @@ export default function AwardsHome() {
         <a href={votingUrl} className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10 transition">
           <Vote className="text-green-300" />
           <h2 className="mt-4 text-2xl font-bold">Vote</h2>
-          <p className="mt-2 text-gray-300">Cast your Awards ballot with your verified Top 100 manager account.</p>
+          <p className="mt-2 text-gray-300">Cast your end-of-season Manager Awards ballot with your verified Top 100 manager account.</p>
         </a>
 
-        <a href={resultsUrl} className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10 transition">
-          <Award className="text-yellow-400" />
-          <h2 className="mt-4 text-2xl font-bold">Published results</h2>
-          <p className="mt-2 text-gray-300">See published Manager Awards results and other Top 100 manager votes.</p>
-          <span className="mt-4 inline-flex items-center gap-1 text-sm text-green-300">Open results <ExternalLink size={15} /></span>
-        </a>
-
-        <a href={historyUrl} className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10 transition">
-          <History className="text-blue-300" />
-          <h2 className="mt-4 text-2xl font-bold">Hall of Fame & history</h2>
-          <p className="mt-2 text-gray-300">Explore past winners, podiums, manager cabinets and Awards records.</p>
+        <a href={historyUrl} className="md:col-span-2 rounded-2xl border border-yellow-300/30 bg-gradient-to-br from-yellow-400/10 to-white/5 p-5 md:p-6 hover:bg-yellow-400/15 transition">
+          <History className="text-yellow-300" />
+          <p className="mt-4 uppercase tracking-[0.2em] text-xs font-bold text-yellow-300">Manager Awards archive</p>
+          <h2 className="mt-2 text-3xl font-bold">Hall of Fame &amp; history</h2>
+          <p className="mt-2 max-w-2xl text-gray-300">Explore every season of Manager of the Season voting: past winners, podiums, manager cabinets and Awards records.</p>
+          <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-yellow-200">Explore Awards history →</span>
         </a>
       </div>
+
+      <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6">
+        <div className="flex items-start gap-3">
+          <Award className="mt-1 shrink-0 text-blue-300" />
+          <div>
+            <h2 className="text-xl font-bold">Top 100 community polls</h2>
+            <p className="mt-2 text-gray-300">
+              All-manager polls on rules, proposals and other community questions are separate from the end-of-season Manager Awards.
+            </p>
+            <a href={resultsUrl} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-green-300">
+              View community poll results <ExternalLink size={15} />
+            </a>
+          </div>
+        </div>
+      </section>
 
       <section className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6">
         <h2 className="text-xl font-bold">How the Awards work</h2>
