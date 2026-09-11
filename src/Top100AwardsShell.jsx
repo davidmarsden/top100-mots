@@ -1,6 +1,7 @@
 import React from "react";
 
 const MAIN_SITE_URL = "https://smtop100.blog/";
+const REGEN_URL = "https://smtop100.blog/regen/";
 
 export default function Top100AwardsShell({ children }) {
   return (
@@ -25,7 +26,8 @@ export default function Top100AwardsShell({ children }) {
             <a href="https://vote.smtop100.blog/">Voting Results</a>
             <a href="https://vote.smtop100.blog/vote">Vote</a>
             <a className="is-current" href="https://awards.smtop100.blog/">Awards</a>
-            <a href="https://top100regen.website/">Regen</a>
+            <a href="https://manager.smtop100.blog/">Manager</a>
+            <a href={REGEN_URL}>Regen</a>
           </nav>
         </div>
       </header>
@@ -46,6 +48,9 @@ export default function Top100AwardsShell({ children }) {
             <a href="https://vote.smtop100.blog/vote">Vote</a>
             <a href={`${MAIN_SITE_URL}rules/`}>Rules</a>
             <a href={`${MAIN_SITE_URL}support/`}>Support</a>
+            <a href="https://awards.smtop100.blog/">Awards</a>
+            <a href="https://manager.smtop100.blog/">Manager</a>
+            <a href={REGEN_URL}>Regen</a>
           </nav>
         </div>
         <div className="top100-family-footer__note">Manager Awards, winners, records and authenticated community voting.</div>
