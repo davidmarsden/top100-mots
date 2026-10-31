@@ -8,6 +8,7 @@ const GLOBAL_LINKS = [
   { label: "Top 100 Regen", href: REGEN_URL },
   { label: "About", href: `${MAIN_SITE_URL}about/` },
   { label: "Explore", href: `${MAIN_SITE_URL}explore/` },
+  { label: "💬 Chat", href: "https://manager.smtop100.blog/chat" },
 ];
 
 const AWARDS_LINKS = [
