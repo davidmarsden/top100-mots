@@ -14,7 +14,7 @@
   - Managers who have left Top 100 aren't nominated. This covers the Top 100 Cup (Libras-Boas) and Top 100 Shield (Saviano) winners.
   - Lyon's squad-limit sanction doesn't rule Bruno Neto out.
   - Four nominees in each division.
-  - Glen Mullan is added to the Overall award for Espanyol's third successive Youth Cup.
+  - Glen Mullan is added to the Overall award for Espanyol's third successive Youth Cup; Bruno Neto and Everton Luiz are left out of it.
 
 ## Overall Manager of the Season
 
@@ -23,12 +23,10 @@
 | André Guerra | FC Porto | D1 1st | 3rd | +2 | Division 1 champions and World Club Cup winners |
 | Neil Frankland | Udinese Calcio | D2 2nd | 17th | +15 | Promoted, 15 places above prediction: the biggest overachievement in Top 100 |
 | Chris East | PSV | D5 1st | 13th | +12 | Division 5 champions, 86 points |
-| Bruno Neto | Olympique Lyonnais | D4 4th | 18th | +14 | Predicted to go down, finished in the play-off places |
 | Chris Taylor | Atalanta BC | D5 3rd | 16th | +13 | Promoted, the biggest value added in Division 5 |
-| Everton Luiz | Dnipro Dnipropetrovsk | D3 6th | 20th | +14 | Play-off places with the weakest squad in Division 3 |
 | Glen Mullan | RCD Espanyol | D1 12th | 20th | +8 | Youth Cup winners for the third season running; a comfortable Division 1 survival with the weakest squad |
 
-Next: Carlos Miranda (Benfica, score 29, +9).
+Bruno Neto (Lyon, +14) and Everton Luiz (Dnipro, +14) qualified on score and remain divisional nominees; the admin team left them out of the Overall award. Next on score: Carlos Miranda (Benfica, score 29, +9).
 
 ## Division 1
 
