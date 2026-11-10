@@ -60,7 +60,7 @@ Next: Tommaso Mello (Boca Juniors, D3 5th, +13, score 29).
 |---|---|---|---|---|---|
 | Alessio Tonato | SSC Napoli | 1st | 6th | +5 | Division 4 champions, 82 points |
 | Melvin Udall | Werder Bremen | 7th | 20th | +13 | Seventh with the weakest squad in the division |
-| Bruno Neto | Olympique Lyonnais | 4th | 13th | +9 | Promotion places (see the compliance note) |
+| Bruno Neto | Olympique Lyonnais | 4th | 13th | +9 | Play-off places (see the compliance note) |
 | Pane Trifunov | River Plate | 8th | 16th | +8 | Eight places above prediction |
 | yamil Mc02 | Beşiktaş JK | 6th | 11th | +5 | Play-off winners, promoted |
 
@@ -71,7 +71,7 @@ Next: Tommaso Mello (Boca Juniors, D3 5th, +13, score 29).
 | Chris East | PSV | 1st | 19th | +18 | Division 5 champions, 86 points, with the second-weakest squad |
 | Chris Taylor | Atalanta BC | 3rd | 15th | +12 | Promoted |
 | Mohammed Ajmal | AZ Alkmaar | 2nd | 8th | +6 | Promoted |
-| Mark Deadman | Shakhtar Donetsk | 5th | 11th | +6 | Promotion places, six above prediction |
+| Mark Deadman | Shakhtar Donetsk | 5th | 11th | +6 | Play-off places, six above prediction |
 | Luciano Catalano | US Sassuolo | 7th | 12th | +5 | Play-off winners, promoted |
 
 ## Decisions for the admin team
