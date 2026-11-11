@@ -7,6 +7,10 @@ const formatDate = (value) =>
     ? new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
     : "Not set";
 
+// "41 of 96 managers (43%)"
+const turnoutText = ({ ballots_cast: cast = 0, electorate_count: of = 0 }) =>
+  `${cast} of ${of} manager${of === 1 ? "" : "s"}${of ? ` (${Math.round((100 * cast) / of)}%)` : ""}`;
+
 export default function SharedVotingAwards() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState("");
@@ -22,6 +26,13 @@ export default function SharedVotingAwards() {
   const [activeQuestionId, setActiveQuestionId] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  // How many managers have voted (counts only, public, shown before signing in too).
+  const [turnout, setTurnout] = useState({});
+  const loadTurnout = async () => {
+    if (!sharedVoting) return;
+    const { data } = await sharedVoting.rpc("voting_turnout");
+    setTurnout(Object.fromEntries((data || []).filter((row) => row.event_type === "awards").map((row) => [row.event_id, row])));
+  };
 
   useEffect(() => {
     if (!hasSharedVotingConfig || !sharedVoting) {
@@ -39,6 +50,12 @@ export default function SharedVotingAwards() {
       active = false;
       listener.subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    loadTurnout();
+    const timer = setInterval(loadTurnout, 60000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -230,7 +247,7 @@ export default function SharedVotingAwards() {
       return;
     }
     setMessage("Awards ballot saved. You can change it until voting closes.");
-    await loadAwards();
+    await Promise.all([loadAwards(), loadTurnout()]);
   }
 
   async function loadResults(eventId) {
@@ -278,11 +295,15 @@ export default function SharedVotingAwards() {
     );
   }
 
+  const openTurnout = Object.values(turnout).filter((row) => row.status === "open" && (!row.closes_at || new Date(row.closes_at) > new Date()))
+    .sort((a, b) => b.event_id - a.event_id)[0];
+
   if (!session) {
     return (
       <div className="max-w-xl mx-auto p-6 text-white">
         <div className="rounded-2xl border border-white/20 bg-white/10 p-6 shadow-xl">
           <div className="flex items-center gap-3 mb-4"><Trophy className="text-yellow-400" /><div><p className="uppercase tracking-widest text-xs text-green-300">Manager Awards voting</p><h1 className="text-3xl font-bold">Top 100 Awards</h1></div></div>
+          {openTurnout && <p className="mb-4 rounded-lg border border-green-400/30 bg-green-950/30 px-3 py-2 text-sm text-green-100"><strong>{openTurnout.title}</strong>: {turnoutText(openTurnout)} have voted so far.</p>}
           <p className="text-gray-300 mb-6">Sign in with the same email address as your Top 100 Manager Portal account.</p>
           <form onSubmit={sendMagicLink} className="space-y-4">
             <label className="block text-sm font-semibold">Email address<input className="mt-2 w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 text-white" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
@@ -337,7 +358,7 @@ export default function SharedVotingAwards() {
           {events.length > 1 && <div className="my-5"><label className="text-sm font-semibold">Awards event<select className="ml-3 rounded-lg bg-slate-900 border border-white/20 px-3 py-2" value={activeEvent?.id || ""} onChange={(e) => { const id = Number(e.target.value); setActiveEventId(id); const first = (questionsByEvent.get(id) || [])[0]; setActiveQuestionId(first?.id || null); }}>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label></div>}
 
           <section className="my-5 rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6">
-            <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-widest text-green-300">{activeEvent.status}</p><h2 className="text-2xl font-bold mt-1">{activeEvent.title}</h2>{activeEvent.description && <p className="mt-2 text-gray-300">{activeEvent.description}</p>}<p className="mt-2 text-sm text-gray-400">Closes {formatDate(activeEvent.closes_at)}</p></div><Award className="text-yellow-400 shrink-0" /></div>
+            <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-widest text-green-300">{activeEvent.status}</p><h2 className="text-2xl font-bold mt-1">{activeEvent.title}</h2>{activeEvent.description && <p className="mt-2 text-gray-300">{activeEvent.description}</p>}<p className="mt-2 text-sm text-gray-400">Closes {formatDate(activeEvent.closes_at)}{turnout[activeEvent.id] ? ` · ${turnoutText(turnout[activeEvent.id])} have voted` : ""}</p></div><Award className="text-yellow-400 shrink-0" /></div>
             {savedBallot?.ballot_id && <p className="mt-4 flex items-center gap-2 text-green-300"><CheckCircle size={18} /> Your ballot is saved.{canVote ? " You can still change it." : ""}</p>}
           </section>
 
