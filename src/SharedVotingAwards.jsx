@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Award, CheckCircle, Lock, Trophy } from "lucide-react";
+import TurnoutMeter from "./TurnoutMeter.jsx";
 import { hasSharedVotingConfig, sharedVoting } from "./sharedVotingClient.js";
 
 const formatDate = (value) =>
@@ -28,6 +29,9 @@ export default function SharedVotingAwards() {
   const [loading, setLoading] = useState(true);
   // How many managers have voted (counts only, public, shown before signing in too).
   const [turnout, setTurnout] = useState({});
+  // Set when this visit saved a ballot, so the confirmation can't be missed.
+  const [justSaved, setJustSaved] = useState(null);
+  const confirmation = useRef(null);
   const loadTurnout = async () => {
     if (!sharedVoting) return;
     const { data } = await sharedVoting.rpc("voting_turnout");
@@ -53,12 +57,17 @@ export default function SharedVotingAwards() {
   }, []);
 
   useEffect(() => {
+    if (justSaved) confirmation.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [justSaved]);
+
+  useEffect(() => {
     loadTurnout();
     const timer = setInterval(loadTurnout, 60000);
     return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
+    setJustSaved(null); // a confirmation belongs to the manager who saved it
     if (!session?.user?.id) {
       setLoading(false);
       setAccount(null);
@@ -238,6 +247,8 @@ export default function SharedVotingAwards() {
     }
 
     setMessage("Saving your Awards ballot…");
+    setJustSaved(null);
+    const updating = Boolean(ballots[eventId]?.ballot_id);
     const { error } = await sharedVoting.rpc("submit_voting_ballot", {
       target_event_id: eventId,
       answers: payload,
@@ -246,8 +257,9 @@ export default function SharedVotingAwards() {
       setMessage(error.message);
       return;
     }
-    setMessage("Awards ballot saved. You can change it until voting closes.");
     await Promise.all([loadAwards(), loadTurnout()]);
+    setMessage("");
+    setJustSaved({ eventId, updating, categories: payload.length });
   }
 
   async function loadResults(eventId) {
@@ -303,7 +315,7 @@ export default function SharedVotingAwards() {
       <div className="max-w-xl mx-auto p-6 text-white">
         <div className="rounded-2xl border border-white/20 bg-white/10 p-6 shadow-xl">
           <div className="flex items-center gap-3 mb-4"><Trophy className="text-yellow-400" /><div><p className="uppercase tracking-widest text-xs text-green-300">Manager Awards voting</p><h1 className="text-3xl font-bold">Top 100 Awards</h1></div></div>
-          {openTurnout && <p className="mb-4 rounded-lg border border-green-400/30 bg-green-950/30 px-3 py-2 text-sm text-green-100"><strong>{openTurnout.title}</strong>: {turnoutText(openTurnout)} have voted so far.</p>}
+          {openTurnout && <div className="mb-5 rounded-xl border border-green-400/30 bg-green-950/30 p-4"><p className="mb-3 text-sm font-semibold text-green-100">{openTurnout.title}</p><TurnoutMeter cast={openTurnout.ballots_cast} of={openTurnout.electorate_count} label="of Top 100 managers have voted so far" /></div>}
           <p className="text-gray-300 mb-6">Sign in with the same email address as your Top 100 Manager Portal account.</p>
           <form onSubmit={sendMagicLink} className="space-y-4">
             <label className="block text-sm font-semibold">Email address<input className="mt-2 w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 text-white" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
@@ -325,6 +337,9 @@ export default function SharedVotingAwards() {
       (!activeEvent.closes_at || new Date(activeEvent.closes_at) > now)
   );
   const savedBallot = activeEvent ? ballots[activeEvent.id] : null;
+  // The confirmation only shows while the choices on screen are the ones saved.
+  const matchesSaved = Boolean(savedBallot?.ballot_id) && (questionsByEvent.get(activeEvent?.id) || []).every((question) =>
+    String(answers[question.id] ?? "") === String((savedBallot.answers || []).find((answer) => answer.question_id === question.id)?.option_id ?? ""));
   const resultRows = activeEvent ? results[activeEvent.id] || [] : [];
   const resultsCanBeReleased = Boolean(
     isAdmin &&
@@ -358,8 +373,11 @@ export default function SharedVotingAwards() {
           {events.length > 1 && <div className="my-5"><label className="text-sm font-semibold">Awards event<select className="ml-3 rounded-lg bg-slate-900 border border-white/20 px-3 py-2" value={activeEvent?.id || ""} onChange={(e) => { const id = Number(e.target.value); setActiveEventId(id); const first = (questionsByEvent.get(id) || [])[0]; setActiveQuestionId(first?.id || null); }}>{events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}</select></label></div>}
 
           <section className="my-5 rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6">
-            <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-widest text-green-300">{activeEvent.status}</p><h2 className="text-2xl font-bold mt-1">{activeEvent.title}</h2>{activeEvent.description && <p className="mt-2 text-gray-300">{activeEvent.description}</p>}<p className="mt-2 text-sm text-gray-400">Closes {formatDate(activeEvent.closes_at)}{turnout[activeEvent.id] ? ` · ${turnoutText(turnout[activeEvent.id])} have voted` : ""}</p></div><Award className="text-yellow-400 shrink-0" /></div>
-            {savedBallot?.ballot_id && <p className="mt-4 flex items-center gap-2 text-green-300"><CheckCircle size={18} /> Your ballot is saved.{canVote ? " You can still change it." : ""}</p>}
+            <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-widest text-green-300">{activeEvent.status}</p><h2 className="text-2xl font-bold mt-1">{activeEvent.title}</h2>{activeEvent.description && <p className="mt-2 text-gray-300">{activeEvent.description}</p>}<p className="mt-2 text-sm text-gray-400">Closes {formatDate(activeEvent.closes_at)}</p></div><Award className="text-yellow-400 shrink-0" /></div>
+            {turnout[activeEvent.id] && <div className="mt-5"><TurnoutMeter cast={turnout[activeEvent.id].ballots_cast} of={turnout[activeEvent.id].electorate_count} label={`managers have voted (${turnoutText(turnout[activeEvent.id])})`} /></div>}
+            {savedBallot?.ballot_id
+              ? <div className="mt-5 flex items-start gap-3 rounded-xl border-2 border-green-400 bg-green-500/15 p-4"><CheckCircle className="mt-0.5 shrink-0 text-green-300" size={28} /><div><p className="text-lg font-bold text-green-200">Your vote is in.</p><p className="text-sm text-green-100">Saved {formatDate(savedBallot.updated_at || savedBallot.submitted_at)}.{canVote ? " You can change it until voting closes: pick again and press Update." : ""}</p></div></div>
+              : canVote && <div className="mt-5 rounded-xl border-2 border-amber-400/60 bg-amber-500/10 p-4"><p className="font-bold text-amber-200">You haven't voted yet.</p><p className="text-sm text-amber-100">Choose a manager in each category below, then press Submit.</p></div>}
           </section>
 
           <nav className="my-5 flex flex-wrap gap-2">
@@ -370,9 +388,11 @@ export default function SharedVotingAwards() {
             })}
           </nav>
 
-          {activeQuestion && <section className="rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6"><h3 className="text-2xl font-bold">{activeQuestion.title}</h3>{activeQuestion.description && <p className="mt-2 text-gray-300">{activeQuestion.description}</p>}<div className="mt-5 grid gap-3">{(optionsByQuestion.get(activeQuestion.id) || []).map((option) => { const selected = String(answers[activeQuestion.id] || "") === String(option.id); const metadata = option.metadata || {}; return <button key={option.id} disabled={!canVote} onClick={() => setAnswers((current) => ({ ...current, [activeQuestion.id]: option.id }))} className={`text-left rounded-xl border p-4 transition ${selected ? "border-yellow-400 bg-yellow-400/15" : "border-white/15 bg-black/10"} ${canVote ? "hover:border-green-300" : "opacity-80"}`}><div className="flex items-center justify-between gap-3"><div><h4 className="font-bold text-lg">{option.label}</h4>{metadata.club && <p className="text-sm text-green-300">{metadata.club}</p>}</div>{selected && <CheckCircle className="text-yellow-400" />}</div>{metadata.achievement && <p className="mt-3 font-semibold text-gray-200">{metadata.achievement}</p>}{metadata.description && <p className="mt-1 text-sm text-gray-400">{metadata.description}</p>}</button>; })}</div></section>}
+          {activeQuestion && <section className="rounded-2xl border border-white/15 bg-white/5 p-5 md:p-6"><h3 className="text-2xl font-bold">{activeQuestion.title}</h3>{activeQuestion.description && <p className="mt-2 text-gray-300">{activeQuestion.description}</p>}<div className="mt-5 grid gap-3">{(optionsByQuestion.get(activeQuestion.id) || []).map((option) => { const selected = String(answers[activeQuestion.id] || "") === String(option.id); const metadata = option.metadata || {}; return <button key={option.id} disabled={!canVote} onClick={() => { setJustSaved(null); setAnswers((current) => ({ ...current, [activeQuestion.id]: option.id })); }} className={`text-left rounded-xl border p-4 transition ${selected ? "border-yellow-400 bg-yellow-400/15" : "border-white/15 bg-black/10"} ${canVote ? "hover:border-green-300" : "opacity-80"}`}><div className="flex items-center justify-between gap-3"><div><h4 className="font-bold text-lg">{option.label}</h4>{metadata.club && <p className="text-sm text-green-300">{metadata.club}</p>}</div>{selected && <CheckCircle className="text-yellow-400" />}</div>{metadata.achievement && <p className="mt-3 font-semibold text-gray-200">{metadata.achievement}</p>}{metadata.description && <p className="mt-1 text-sm text-gray-400">{metadata.description}</p>}</button>; })}</div></section>}
 
-          <div className="my-5 flex flex-wrap gap-3">{canVote && <button onClick={() => submitEventBallot(activeEvent.id)} className="rounded-lg bg-yellow-500 px-5 py-3 font-bold text-black hover:bg-yellow-400">{savedBallot?.ballot_id ? "Update Awards ballot" : "Submit Awards ballot"}</button>}{isAdmin && activeEvent.status === "closed" && <button onClick={() => finaliseAwards(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Finalise Awards categories</button>}{resultsCanBeReleased && <button onClick={() => releaseResults(activeEvent.id)} className="rounded-lg border border-green-400/30 bg-green-500/20 px-4 py-3">Release results</button>}<button onClick={() => loadResults(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Show available results</button></div>
+          {canVote && <p className="mt-5 text-sm text-gray-300">{eventQuestions.filter((question) => answers[question.id]).length} of {eventQuestions.length} categories chosen.</p>}
+          {justSaved?.eventId === activeEvent.id && savedBallot?.ballot_id && matchesSaved && <div ref={confirmation} role="status" className="my-5 flex items-start gap-4 rounded-2xl border-2 border-green-400 bg-green-600/25 p-5 shadow-xl"><CheckCircle className="shrink-0 text-green-300" size={44} /><div><p className="text-2xl font-extrabold text-green-100">{justSaved.updating ? "Vote updated" : "Thanks, your vote is in!"}</p><p className="mt-1 text-green-50">Your choices in {justSaved.categories} categor{justSaved.categories === 1 ? "y are" : "ies are"} saved. You don't need to do anything else.</p>{turnout[activeEvent.id] && <p className="mt-1 text-sm text-green-100">{turnoutText(turnout[activeEvent.id])} have now voted.</p>}</div></div>}
+          <div className="my-5 flex flex-wrap gap-3">{canVote && <button onClick={() => submitEventBallot(activeEvent.id)} className="rounded-lg bg-yellow-500 px-5 py-3 font-bold text-black hover:bg-yellow-400">{savedBallot?.ballot_id ? "Update Awards ballot" : "Submit Awards ballot"}</button>}{isAdmin && activeEvent.status === "closed" && <button onClick={() => finaliseAwards(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Finalise Awards categories</button>}{resultsCanBeReleased && <button onClick={() => releaseResults(activeEvent.id)} className="rounded-lg border border-green-400/30 bg-green-500/20 px-4 py-3">Release results</button>}{(isAdmin ? activeEvent.status === "closed" : Boolean(activeEvent.results_released_at)) && <button onClick={() => loadResults(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Show results</button>}</div>
 
           {resultRows.length > 0 && <section className="my-5 rounded-2xl border border-white/15 bg-white/5 p-5"><h3 className="text-xl font-bold">Results</h3><div className="mt-4 space-y-4">{eventQuestions.map((question) => { const rows = resultRows.filter((row) => row.question_id === question.id).sort((a, b) => Number(b.votes) - Number(a.votes)); if (!rows.length) return null; return <div key={question.id}><h4 className="font-bold">{question.title}</h4><ol className="mt-2 space-y-1">{rows.map((row, index) => <li key={row.option_id} className="flex justify-between gap-4"><span>{index + 1}. {row.option_label}</span><strong>{row.votes}</strong></li>)}</ol></div>; })}</div></section>}
         </>
