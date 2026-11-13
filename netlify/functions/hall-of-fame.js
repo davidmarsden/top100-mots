@@ -15,6 +15,14 @@ const SEASONS = [
   { season: "S25", tab: "Archive_S25", archived: true },
 ];
 
+// Managers who have changed their name since an archived season: the archive tabs keep the
+// name used at the time, so map it to the current one to keep each manager's cabinet together.
+const FORMER_NAMES = {
+  "The FM": "JWD",
+  "André Libras-Boas": "Luís André Libras-Boas",
+};
+const currentName = (name) => FORMER_NAMES[String(name || "").trim()] || name;
+
 const CATEGORY_LABELS = {
   overall: "Overall Manager of the Season",
   division1: "Division 1 Manager of the Season",
@@ -64,7 +72,7 @@ export default async () => {
       for (const r of rows.slice(1)) {
         const category = r[2];
         const nomineeId = r[3];
-        const nomineeName = r[4] || r[3];
+        const nomineeName = currentName(r[4] || r[3]);
 
         if (!category || !nomineeId) continue;
 
