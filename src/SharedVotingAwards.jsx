@@ -392,21 +392,25 @@ export default function SharedVotingAwards() {
 
           {canVote && (() => {
             const chosen = eventQuestions.filter((question) => answers[question.id]).length;
-            const remaining = eventQuestions.length - chosen;
+            // Only required categories block submitting; a saved ballot that matches the picks is saved.
+            const remaining = eventQuestions.filter((question) => question.required && !answers[question.id]).length;
             const nextQuestion = eventQuestions.find((question) => question.id !== activeQuestion?.id && !answers[question.id]);
-            const unsaved = !savedBallot?.ballot_id || !matchesSaved;
-            return <div className={`mt-5 rounded-xl border p-4 ${remaining ? "border-white/15 bg-white/5" : unsaved ? "border-yellow-400 bg-yellow-500/15" : "border-green-400/40 bg-green-500/10"}`}>
+            const saved = Boolean(savedBallot?.ballot_id) && matchesSaved;
+            const unsaved = !saved;
+            return <div className={`mt-5 rounded-xl border p-4 ${saved ? "border-green-400/40 bg-green-500/10" : remaining ? "border-white/15 bg-white/5" : unsaved ? "border-yellow-400 bg-yellow-500/15" : "border-green-400/40 bg-green-500/10"}`}>
               <p className="font-semibold">{chosen} of {eventQuestions.length} categories chosen.</p>
-              <p className="mt-1 text-sm text-gray-300">{remaining
+              <p className="mt-1 text-sm text-gray-300">{saved
+                ? "These are your saved picks."
+                : remaining
                 ? `Your vote isn't saved yet: choose ${remaining} more categor${remaining === 1 ? "y" : "ies"}, then press Submit.`
                 : unsaved
                   ? (savedBallot?.ballot_id ? "You've changed your picks. Press Update to save them." : "All done: press Submit Awards ballot to save your vote.")
                   : "These are your saved picks."}</p>
-              {remaining > 0 && answers[activeQuestion?.id] && nextQuestion && <button onClick={() => { setActiveQuestionId(nextQuestion.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="mt-3 rounded-lg border border-green-400/50 bg-green-500/15 px-4 py-2 font-semibold hover:bg-green-500/25">Next: {nextQuestion.title} →</button>}
+              {!saved && answers[activeQuestion?.id] && nextQuestion && <button onClick={() => { setActiveQuestionId(nextQuestion.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="mt-3 rounded-lg border border-green-400/50 bg-green-500/15 px-4 py-2 font-semibold hover:bg-green-500/25">Next: {nextQuestion.title} →</button>}
             </div>;
           })()}
           {justSaved?.eventId === activeEvent.id && savedBallot?.ballot_id && matchesSaved && <div ref={confirmation} role="status" className="my-5 flex items-start gap-4 rounded-2xl border-2 border-green-400 bg-green-600/25 p-5 shadow-xl"><CheckCircle className="shrink-0 text-green-300" size={44} /><div><p className="text-2xl font-extrabold text-green-100">{justSaved.updating ? "Vote updated" : "Thanks, your vote is in!"}</p><p className="mt-1 text-green-50">Your choices in {justSaved.categories} categor{justSaved.categories === 1 ? "y are" : "ies are"} saved. You don't need to do anything else.</p>{turnout[activeEvent.id] && <p className="mt-1 text-sm text-green-100">{turnoutText(turnout[activeEvent.id])} have now voted.</p>}</div></div>}
-          <div className="my-5 flex flex-wrap gap-3">{canVote && <button onClick={() => submitEventBallot(activeEvent.id)} className="rounded-lg bg-yellow-500 px-5 py-3 font-bold text-black hover:bg-yellow-400">{savedBallot?.ballot_id ? "Update Awards ballot" : "Submit Awards ballot"}{eventQuestions.some((question) => !answers[question.id]) ? ` (${eventQuestions.filter((question) => answers[question.id]).length}/${eventQuestions.length})` : ""}</button>}{isAdmin && activeEvent.status === "closed" && <button onClick={() => finaliseAwards(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Finalise Awards categories</button>}{resultsCanBeReleased && <button onClick={() => releaseResults(activeEvent.id)} className="rounded-lg border border-green-400/30 bg-green-500/20 px-4 py-3">Release results</button>}{(isAdmin ? activeEvent.status === "closed" : Boolean(activeEvent.results_released_at)) && <button onClick={() => loadResults(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Show results</button>}</div>
+          <div className="my-5 flex flex-wrap gap-3">{canVote && <button onClick={() => submitEventBallot(activeEvent.id)} className="rounded-lg bg-yellow-500 px-5 py-3 font-bold text-black hover:bg-yellow-400">{savedBallot?.ballot_id ? "Update Awards ballot" : "Submit Awards ballot"}{eventQuestions.some((question) => question.required && !answers[question.id]) ? ` (${eventQuestions.filter((question) => question.required && answers[question.id]).length}/${eventQuestions.filter((question) => question.required).length})` : ""}</button>}{isAdmin && activeEvent.status === "closed" && <button onClick={() => finaliseAwards(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Finalise Awards categories</button>}{resultsCanBeReleased && <button onClick={() => releaseResults(activeEvent.id)} className="rounded-lg border border-green-400/30 bg-green-500/20 px-4 py-3">Release results</button>}{(isAdmin ? activeEvent.status === "closed" : Boolean(activeEvent.results_released_at)) && <button onClick={() => loadResults(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Show results</button>}</div>
 
           {resultRows.length > 0 && <section className="my-5 rounded-2xl border border-white/15 bg-white/5 p-5"><h3 className="text-xl font-bold">Results</h3><div className="mt-4 space-y-4">{eventQuestions.map((question) => { const rows = resultRows.filter((row) => row.question_id === question.id).sort((a, b) => Number(b.votes) - Number(a.votes)); if (!rows.length) return null; return <div key={question.id}><h4 className="font-bold">{question.title}</h4><ol className="mt-2 space-y-1">{rows.map((row, index) => <li key={row.option_id} className="flex justify-between gap-4"><span>{index + 1}. {row.option_label}</span><strong>{row.votes}</strong></li>)}</ol></div>; })}</div></section>}
         </>
