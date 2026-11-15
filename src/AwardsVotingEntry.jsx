@@ -29,8 +29,12 @@ export default function AwardsVotingEntry() {
     const handleMessage = async (event) => {
       if (event.origin !== MANAGER_ORIGIN || event.data?.type !== "top100-manager-session") return;
 
+      // Never replace a session this page already has (for example one just created by a sign-in
+      // link): the Manager Portal may still hold an older session that signing out has revoked,
+      // and importing it would sign the manager straight back out.
+      const { data: current } = await sharedVoting.auth.getSession();
       const bridgeSession = event.data.session;
-      if (bridgeSession?.access_token && bridgeSession?.refresh_token) {
+      if (!current?.session && bridgeSession?.access_token && bridgeSession?.refresh_token) {
         const { error } = await sharedVoting.auth.setSession(bridgeSession);
         if (error) console.warn("Could not import Manager Portal session into Awards.", error);
       }
