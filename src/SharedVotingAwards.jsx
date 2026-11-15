@@ -275,6 +275,14 @@ export default function SharedVotingAwards() {
 
   async function finaliseAwards(eventId) {
     setMessage("Finalising Awards categories…");
+    // Nothing closes a vote at its deadline, so close it first if it still reads as open.
+    if (events.find((event) => event.id === eventId)?.status === "open") {
+      const closed = await sharedVoting.rpc("close_voting_event", { target_event_id: eventId });
+      if (closed.error) {
+        setMessage(closed.error.message);
+        return;
+      }
+    }
     const { data, error } = await sharedVoting.rpc("finalise_awards_event", {
       target_event_id: eventId,
     });
@@ -341,6 +349,11 @@ export default function SharedVotingAwards() {
   const matchesSaved = Boolean(savedBallot?.ballot_id) && (questionsByEvent.get(activeEvent?.id) || []).every((question) =>
     String(answers[question.id] ?? "") === String((savedBallot.answers || []).find((answer) => answer.question_id === question.id)?.option_id ?? ""));
   const resultRows = activeEvent ? results[activeEvent.id] || [] : [];
+  // Voting has ended once the event is closed or its deadline has passed.
+  const votingEnded = Boolean(
+    activeEvent &&
+      (activeEvent.status === "closed" || (activeEvent.status === "open" && activeEvent.closes_at && new Date(activeEvent.closes_at) <= now))
+  );
   const resultsCanBeReleased = Boolean(
     isAdmin &&
       activeEvent?.results_visibility === "manual_release" &&
@@ -410,7 +423,7 @@ export default function SharedVotingAwards() {
             </div>;
           })()}
           {justSaved?.eventId === activeEvent.id && savedBallot?.ballot_id && matchesSaved && <div ref={confirmation} role="status" className="my-5 flex items-start gap-4 rounded-2xl border-2 border-green-400 bg-green-600/25 p-5 shadow-xl"><CheckCircle className="shrink-0 text-green-300" size={44} /><div><p className="text-2xl font-extrabold text-green-100">{justSaved.updating ? "Vote updated" : "Thanks, your vote is in!"}</p><p className="mt-1 text-green-50">Your choices in {justSaved.categories} categor{justSaved.categories === 1 ? "y are" : "ies are"} saved. You don't need to do anything else.</p>{turnout[activeEvent.id] && <p className="mt-1 text-sm text-green-100">{turnoutText(turnout[activeEvent.id])} have now voted.</p>}</div></div>}
-          <div className="my-5 flex flex-wrap gap-3">{canVote && <button onClick={() => submitEventBallot(activeEvent.id)} className="rounded-lg bg-yellow-500 px-5 py-3 font-bold text-black hover:bg-yellow-400">{savedBallot?.ballot_id ? "Update Awards ballot" : "Submit Awards ballot"}{eventQuestions.some((question) => question.required && !answers[question.id]) ? ` (${eventQuestions.filter((question) => question.required && answers[question.id]).length}/${eventQuestions.filter((question) => question.required).length})` : ""}</button>}{isAdmin && activeEvent.status === "closed" && <button onClick={() => finaliseAwards(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Finalise Awards categories</button>}{resultsCanBeReleased && <button onClick={() => releaseResults(activeEvent.id)} className="rounded-lg border border-green-400/30 bg-green-500/20 px-4 py-3">Release results</button>}{(isAdmin ? activeEvent.status === "closed" : Boolean(activeEvent.results_released_at)) && <button onClick={() => loadResults(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Show results</button>}</div>
+          <div className="my-5 flex flex-wrap gap-3">{canVote && <button onClick={() => submitEventBallot(activeEvent.id)} className="rounded-lg bg-yellow-500 px-5 py-3 font-bold text-black hover:bg-yellow-400">{savedBallot?.ballot_id ? "Update Awards ballot" : "Submit Awards ballot"}{eventQuestions.some((question) => question.required && !answers[question.id]) ? ` (${eventQuestions.filter((question) => question.required && answers[question.id]).length}/${eventQuestions.filter((question) => question.required).length})` : ""}</button>}{isAdmin && votingEnded && <button onClick={() => finaliseAwards(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Finalise Awards categories</button>}{resultsCanBeReleased && <button onClick={() => releaseResults(activeEvent.id)} className="rounded-lg border border-green-400/30 bg-green-500/20 px-4 py-3">Release results</button>}{(isAdmin ? votingEnded : Boolean(activeEvent.results_released_at)) && <button onClick={() => loadResults(activeEvent.id)} className="rounded-lg border border-white/20 bg-white/10 px-4 py-3">Show results</button>}</div>
 
           {resultRows.length > 0 && <section className="my-5 rounded-2xl border border-white/15 bg-white/5 p-5"><h3 className="text-xl font-bold">Results</h3><div className="mt-4 space-y-4">{eventQuestions.map((question) => { const rows = resultRows.filter((row) => row.question_id === question.id).sort((a, b) => Number(b.votes) - Number(a.votes)); if (!rows.length) return null; return <div key={question.id}><h4 className="font-bold">{question.title}</h4><ol className="mt-2 space-y-1">{rows.map((row, index) => <li key={row.option_id} className="flex justify-between gap-4"><span>{index + 1}. {row.option_label}</span><strong>{row.votes}</strong></li>)}</ol></div>; })}</div></section>}
         </>
