@@ -9,7 +9,19 @@ const json = (obj, status = 200) =>
     },
   });
 
+// Season 28 onwards were voted in the shared voting system, not the Google Sheet: their final
+// counts are recorded here once the results are released.
+const S28_TALLIES = {
+  overall: { "André Guerra": 44, "Neil Frankland": 22, "Glen Mullan": 13, "Chris East": 4, "Chris Taylor": 2 },
+  division1: { "André Guerra": 72, "Ash L": 10, "Bojan H": 2, "Heath Brown": 1 },
+  division2: { "Neil Frankland": 51, "Carlos Miranda": 29, "⍟Greg Bilboaツ": 4, "Mister TRX": 1 },
+  division3: { "Sir Stephen Beddows": 37, "Everton Luiz": 30, "Alessandro Ioli": 13, JWD: 5 },
+  division4: { "Bruno Neto^^": 42, "Alessio Tonato": 29, "yamil Mc02": 11, "Pane Trifunov": 3 },
+  division5: { "Chris East": 57, "Chris Taylor": 20, "Mark Deadman": 6, "Mohammed Ajmal": 2 },
+};
+
 const SEASONS = [
+  { season: "S28", tab: "Shared voting", archived: true, tallies: S28_TALLIES },
   { season: "S27", tab: "Votes_S27", archived: false },
   { season: "S26", tab: "Archive_S26", archived: true },
   { season: "S25", tab: "Archive_S25", archived: true },
@@ -56,7 +68,15 @@ export default async () => {
 
       let rows = [];
 
-      try {
+      if (seasonInfo.tallies) {
+        // Recorded counts: one row per vote, in the same shape as a sheet row.
+        rows = [[]];
+        for (const [category, counts] of Object.entries(seasonInfo.tallies)) {
+          for (const [name, votes] of Object.entries(counts)) {
+            for (let i = 0; i < votes; i += 1) rows.push(["", "", category, name, name]);
+          }
+        }
+      } else try {
         const { data } = await sheets.spreadsheets.values.get({
           spreadsheetId: sheetId,
           range: `${tab}!A:E`,
