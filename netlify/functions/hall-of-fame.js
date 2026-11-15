@@ -16,7 +16,7 @@ const S28_TALLIES = {
   division1: { "André Guerra": 72, "Ash L": 10, "Bojan H": 2, "Heath Brown": 1 },
   division2: { "Neil Frankland": 51, "Carlos Miranda": 29, "⍟Greg Bilboaツ": 4, "Mister TRX": 1 },
   division3: { "Sir Stephen Beddows": 37, "Everton Luiz": 30, "Alessandro Ioli": 13, JWD: 5 },
-  division4: { "Bruno Neto": 42, "Alessio Tonato": 29, "yamil Mc02": 11, "Pane Trifunov": 3 },
+  division4: { "Bruno Neto^^": 42, "Alessio Tonato": 29, "yamil Mc02": 11, "Pane Trifunov": 3 },
   division5: { "Chris East": 57, "Chris Taylor": 20, "Mark Deadman": 6, "Mohammed Ajmal": 2 },
 };
 
